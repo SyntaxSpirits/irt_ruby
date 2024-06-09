@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "irt_ruby"
+require "spec_helper"
 
 RSpec.describe IrtRuby::RaschModel do
   let(:data) { Matrix[[1, 0, 1], [0, 1, 0], [1, 1, 1]] }
