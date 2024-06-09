@@ -4,7 +4,7 @@ require "spec_helper"
 
 RSpec.describe IrtRuby::RaschModel do
   let(:data) { Matrix[[1, 0, 1], [0, 1, 0], [1, 1, 1]] }
-  let(:irt_model) { IrtRuby::RaschModel.new(data) }
+  let(:irt_model) { IrtRuby::RaschModel.new(data, max_iter: 2000) }
 
   describe "#sigmoid" do
     it "calculates the sigmoid of a value" do
