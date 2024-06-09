@@ -26,6 +26,9 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby-version }}
 
+      - name: Install Bundler
+        run: gem install bundler -v 2.4.22
+
       - name: Install dependencies
         run: bundle install
 
