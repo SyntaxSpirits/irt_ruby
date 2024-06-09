@@ -1,7 +1,7 @@
 
 # IrtRuby
 
-IrtRuby is a Ruby gem that provides implementations of the Rasch model and the Two-Parameter model for Item Response Theory (IRT). It allows you to estimate the abilities of individuals and the difficulties of items based on their responses to a set of items.
+IrtRuby is a Ruby gem that provides implementations of the Rasch model, the Two-Parameter model, and the Three-Parameter model for Item Response Theory (IRT). It allows you to estimate the abilities of individuals and the difficulties of items based on their responses to a set of items.
 
 ## Installation
 
