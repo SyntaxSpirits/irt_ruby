@@ -28,4 +28,4 @@ jobs:
           bundler-cache: true # This will set up Bundler and cache the dependencies
 
       - name: Run tests
-        run: bundle exec rake test
+        run: bundle exec rspec
