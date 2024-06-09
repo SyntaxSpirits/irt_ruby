@@ -27,14 +27,5 @@ jobs:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true # This will set up Bundler and cache the dependencies
 
-      - name: Install Bundler
-        run: gem install bundler
-
-      - name: Update Gemfile.lock for Linux
-        run: bundle lock --add-platform x86_64-linux
-
-      - name: Install dependencies
-        run: bundle install
-
       - name: Run tests
         run: bundle exec rake test
