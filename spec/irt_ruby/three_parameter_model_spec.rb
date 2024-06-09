@@ -4,7 +4,7 @@ require "spec_helper"
 
 RSpec.describe IrtRuby::ThreeParameterModel do
   let(:data) { Matrix[[1, 0, 1], [0, 1, 0], [1, 1, 1]] }
-  let(:model) { IrtRuby::ThreeParameterModel.new(data) }
+  let(:model) { IrtRuby::ThreeParameterModel.new(data, max_iter: 1500) }
 
   describe "#initialize" do
     it "initializes with data" do

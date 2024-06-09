@@ -5,12 +5,12 @@ require "matrix"
 module IrtRuby
   # A class representing the Rasch model for Item Response Theory.
   class RaschModel
-    def initialize(data)
+    def initialize(data, max_iter: 1000, tolerance: 1e-6)
       @data = data
       @abilities = Array.new(data.row_count) { rand }
       @difficulties = Array.new(data.column_count) { rand }
-      @max_iter = 1000
-      @tolerance = 1e-6
+      @max_iter = max_iter
+      @tolerance = tolerance
     end
 
     def sigmoid(x)
