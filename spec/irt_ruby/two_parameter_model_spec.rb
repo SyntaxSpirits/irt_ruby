@@ -1,35 +1,155 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "matrix"
 
 RSpec.describe IrtRuby::TwoParameterModel do
-  let(:data) { Matrix[[1, 0, 1], [0, 1, 0], [1, 1, 1]] }
-  let(:model) { IrtRuby::TwoParameterModel.new(data, max_iter: 3000) }
+  let(:data_array) do
+    [
+      [1, 1, 0],
+      [1, 0, 1],
+      [0, 1, 1],
+      [1, 1, 1]
+    ]
+  end
 
-  describe "#initialize" do
-    it "initializes with data" do
-      expect(model.instance_variable_get(:@data)).to eq(data)
+  let(:data_matrix) { Matrix[*data_array] }
+
+  describe "Basic fitting and improvement" do
+    it "fits the 2PL model with an array-of-arrays and improves log-likelihood" do
+      model = described_class.new(data_array, max_iter: 300, learning_rate: 0.1)
+      initial_ll = model.log_likelihood
+      results = model.fit
+      final_ll = model.log_likelihood
+
+      expect(final_ll).to be > initial_ll
+      expect(results[:abilities].size).to eq(4)
+      expect(results[:difficulties].size).to eq(3)
+      expect(results[:discriminations].size).to eq(3)
+    end
+
+    it "fits the 2PL model with a Matrix and improves log-likelihood" do
+      model = described_class.new(data_matrix, max_iter: 300, learning_rate: 0.1)
+      initial_ll = model.log_likelihood
+      results = model.fit
+      final_ll = model.log_likelihood
+
+      expect(final_ll).to be > initial_ll
+      expect(results[:abilities].size).to eq(4)
+      expect(results[:difficulties].size).to eq(3)
+      expect(results[:discriminations].size).to eq(3)
     end
   end
 
-  describe "#sigmoid" do
-    it "calculates the sigmoid function" do
-      expect(model.sigmoid(0)).to eq(0.5)
+  describe "Missing data handling" do
+    it "does not raise an error with missing data (nil) in 2PL" do
+      missing_data = [
+        [1, nil, 0],
+        [1,  0,   1],
+        [0,  1,   nil]
+      ]
+      model = described_class.new(missing_data, max_iter: 200, learning_rate: 0.05)
+      expect { model.fit }.not_to raise_error
+
+      results = model.fit
+      expect(results[:abilities]).not_to be_empty
+      expect(results[:difficulties]).not_to be_empty
+      expect(results[:discriminations]).not_to be_empty
     end
   end
 
-  describe "#likelihood" do
-    it "calculates the likelihood of the data" do
-      expect(model.likelihood).to be_a(Float)
+  describe "Edge cases" do
+    it "works with a single examinee and single item" do
+      data = [[1]]
+      model = described_class.new(data, max_iter: 100)
+      expect { model.fit }.not_to raise_error
+
+      results = model.fit
+      expect(results[:abilities].size).to eq(1)
+      expect(results[:difficulties].size).to eq(1)
+      expect(results[:discriminations].size).to eq(1)
+    end
+
+    it "handles all responses correct" do
+      data = [
+        [1, 1],
+        [1, 1]
+      ]
+      model = described_class.new(data, max_iter: 100)
+      initial_ll = model.log_likelihood
+      results = model.fit
+      final_ll = model.log_likelihood
+
+      expect(final_ll).to be >= initial_ll
+      expect(results[:abilities].size).to eq(2)
+      expect(results[:difficulties].size).to eq(2)
+      expect(results[:discriminations].size).to eq(2)
+    end
+
+    it "handles all responses incorrect" do
+      data = [
+        [0, 0],
+        [0, 0]
+      ]
+      model = described_class.new(data, max_iter: 100)
+      initial_ll = model.log_likelihood
+      results = model.fit
+      final_ll = model.log_likelihood
+
+      expect(final_ll).to be >= initial_ll
+      expect(results[:abilities].size).to eq(2)
+      expect(results[:difficulties].size).to eq(2)
+      expect(results[:discriminations].size).to eq(2)
+    end
+
+    it "handles an entire row missing" do
+      data = [
+        [1, 0, 1],
+        [nil, nil, nil]
+      ]
+      model = described_class.new(data)
+      expect { model.fit }.not_to raise_error
+
+      results = model.fit
+      expect(results[:abilities].size).to eq(2)
+      expect(results[:difficulties].size).to eq(3)
+      expect(results[:discriminations].size).to eq(3)
+    end
+
+    it "handles an entire column missing" do
+      data = [
+        [1, nil, 0],
+        [1, nil, 1],
+        [0, nil, 1]
+      ]
+      model = described_class.new(data)
+      expect { model.fit }.not_to raise_error
+
+      results = model.fit
+      expect(results[:abilities].size).to eq(3)
+      expect(results[:difficulties].size).to eq(3)
+      expect(results[:discriminations].size).to eq(3)
     end
   end
 
-  describe "#fit" do
-    it "fits the model and returns abilities, difficulties, and discriminations" do
-      result = model.fit
-      expect(result[:abilities].size).to eq(data.row_count)
-      expect(result[:difficulties].size).to eq(data.column_count)
-      expect(result[:discriminations].size).to eq(data.column_count)
+  describe "Hyperparameter extremes" do
+    it "does not diverge with a large learning rate (but may revert updates)" do
+      model = described_class.new(data_array, max_iter: 200, learning_rate: 5.0)
+      expect { model.fit }.not_to raise_error
+
+      results = model.fit
+      expect(results[:abilities]).not_to be_empty
+      expect(results[:difficulties]).not_to be_empty
+      expect(results[:discriminations]).not_to be_empty
+    end
+
+    it "improves log-likelihood with a very small learning rate, though slowly" do
+      model = described_class.new(data_array, max_iter: 2000, learning_rate: 1e-4)
+      initial_ll = model.log_likelihood
+      model.fit
+      final_ll = model.log_likelihood
+
+      expect(final_ll).to be > initial_ll
     end
   end
 end
