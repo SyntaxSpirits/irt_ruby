@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "matrix"
-
 module IrtRuby
   # A class representing the Three-Parameter model (3PL) for Item Response Theory.
   # Incorporates:
@@ -11,14 +9,25 @@ module IrtRuby
   # - Multiple convergence checks
   # - Separate gradient calculation & updates
   class ThreeParameterModel
-    def initialize(data, max_iter: 1000, tolerance: 1e-6, param_tolerance: 1e-6,
-                   learning_rate: 0.01, decay_factor: 0.5)
+    MISSING_STRATEGIES = %i[ignore treat_as_incorrect treat_as_correct].freeze
+
+    def initialize(data,
+                   max_iter: 1000,
+                   tolerance: 1e-6,
+                   param_tolerance: 1e-6,
+                   learning_rate: 0.01,
+                   decay_factor: 0.5,
+                   missing_strategy: :ignore)
       @data = data
       @data_array = data.to_a
       num_rows = @data_array.size
       num_cols = @data_array.first.size
 
-      # Typical initialization for 3PL
+      raise ArgumentError, "missing_strategy must be one of #{MISSING_STRATEGIES}" unless MISSING_STRATEGIES.include?(missing_strategy)
+
+      @missing_strategy = missing_strategy
+
+      # Initialize parameters
       @abilities       = Array.new(num_rows)  { rand(-0.25..0.25) }
       @difficulties    = Array.new(num_cols)  { rand(-0.25..0.25) }
       @discriminations = Array.new(num_cols)  { rand(0.5..1.5) }
@@ -40,15 +49,32 @@ module IrtRuby
       c + (1.0 - c) * sigmoid(a * (theta - b))
     end
 
+    def resolve_missing(resp)
+      return [resp, false] unless resp.nil?
+
+      case @missing_strategy
+      when :ignore
+        [nil, true]
+      when :treat_as_incorrect
+        [0, false]
+      when :treat_as_correct
+        [1, false]
+      end
+    end
+
     def log_likelihood
       ll = 0.0
       @data_array.each_with_index do |row, i|
         row.each_with_index do |resp, j|
-          next if resp.nil?
+          value, skip = resolve_missing(resp)
+          next if skip
 
-          prob = probability(@abilities[i], @discriminations[j],
-                             @difficulties[j], @guessings[j])
-          ll += if resp == 1
+          prob = probability(@abilities[i],
+                             @discriminations[j],
+                             @difficulties[j],
+                             @guessings[j])
+
+          ll += if value == 1
                   Math.log(prob + 1e-15)
                 else
                   Math.log((1 - prob) + 1e-15)
@@ -66,7 +92,8 @@ module IrtRuby
 
       @data_array.each_with_index do |row, i|
         row.each_with_index do |resp, j|
-          next if resp.nil?
+          value, skip = resolve_missing(resp)
+          next if skip
 
           theta = @abilities[i]
           a     = @discriminations[j]
@@ -74,13 +101,13 @@ module IrtRuby
           c     = @guessings[j]
 
           prob  = probability(theta, a, b, c)
-          error = resp - prob
+          error = value - prob
 
-          grad_abilities[i] += error * a * (1 - c)
-          grad_difficulties[j] -= error * a * (1 - c)
+          grad_abilities[i]       += error * a * (1 - c)
+          grad_difficulties[j]    -= error * a * (1 - c)
           grad_discriminations[j] += error * (theta - b) * (1 - c)
 
-          grad_guessings[j] += error * 1.0
+          grad_guessings[j]       += error * 1.0
         end
       end
 
@@ -88,10 +115,10 @@ module IrtRuby
     end
 
     def apply_gradient_update(ga, gd, gdisc, gc)
-      old_abilities       = @abilities.dup
-      old_difficulties    = @difficulties.dup
-      old_discriminations = @discriminations.dup
-      old_guessings       = @guessings.dup
+      old_a    = @abilities.dup
+      old_d    = @difficulties.dup
+      old_disc = @discriminations.dup
+      old_c    = @guessings.dup
 
       @abilities.each_index do |i|
         @abilities[i] += @learning_rate * ga[i]
@@ -113,23 +140,15 @@ module IrtRuby
         @guessings[j] = 0.35 if @guessings[j] > 0.35
       end
 
-      [old_abilities, old_difficulties, old_discriminations, old_guessings]
+      [old_a, old_d, old_disc, old_c]
     end
 
     def average_param_update(old_a, old_d, old_disc, old_c)
       deltas = []
-      @abilities.each_with_index do |x, i|
-        deltas << (x - old_a[i]).abs
-      end
-      @difficulties.each_with_index do |x, j|
-        deltas << (x - old_d[j]).abs
-      end
-      @discriminations.each_with_index do |x, j|
-        deltas << (x - old_disc[j]).abs
-      end
-      @guessings.each_with_index do |x, j|
-        deltas << (x - old_c[j]).abs
-      end
+      @abilities.each_with_index       { |x, i| deltas << (x - old_a[i]).abs }
+      @difficulties.each_with_index    { |x, j| deltas << (x - old_d[j]).abs }
+      @discriminations.each_with_index { |x, j| deltas << (x - old_disc[j]).abs }
+      @guessings.each_with_index       { |x, j| deltas << (x - old_c[j]).abs }
       deltas.sum / deltas.size
     end
 
@@ -140,7 +159,7 @@ module IrtRuby
         ga, gd, gdisc, gc = compute_gradient
         old_a, old_d, old_disc, old_c = apply_gradient_update(ga, gd, gdisc, gc)
 
-        curr_ll = log_likelihood
+        curr_ll     = log_likelihood
         param_delta = average_param_update(old_a, old_d, old_disc, old_c)
 
         if curr_ll < prev_ll
@@ -148,7 +167,6 @@ module IrtRuby
           @difficulties    = old_d
           @discriminations = old_disc
           @guessings       = old_c
-
           @learning_rate  *= @decay_factor
         else
           ll_diff = (curr_ll - prev_ll).abs
