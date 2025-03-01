@@ -6,8 +6,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Alex Kholodniak"]
   spec.email         = ["alexandrkholodniak@gmail.com"]
 
-  spec.summary       = %q{A Ruby gem that provides implementations of Rasch, Two-Parameter, and Three-Parameter models for Item Response Theory (IRT).}
-  spec.description   = %q{IrtRuby is a Ruby gem that provides implementations of the Rasch model, Two-Parameter model, and Three-Parameter model for Item Response Theory (IRT). It allows you to estimate the abilities of individuals and the difficulties, discriminations, and guessing parameters of items based on their responses to a set of items.}
+  spec.summary       = "A Ruby gem that provides implementations of Rasch, Two-Parameter, and Three-Parameter models for Item Response Theory (IRT)."
+  spec.description   = "IrtRuby is a Ruby gem that provides implementations of the Rasch model, Two-Parameter model, and Three-Parameter model for Item Response Theory (IRT). It allows you to estimate the abilities of individuals and the difficulties, discriminations, and guessing parameters of items based on their responses to a set of items."
   spec.homepage      = "https://github.com/SyntaxSpirits/irt_ruby"
   spec.license       = "MIT"
 
