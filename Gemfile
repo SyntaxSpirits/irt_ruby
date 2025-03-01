@@ -2,7 +2,6 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in irt_ruby.gemspec
 gemspec
 
 gem "rake", "~> 13.0"
@@ -10,5 +9,3 @@ gem "rake", "~> 13.0"
 gem "rspec", "~> 3.0"
 
 gem "rubocop", "~> 1.21"
-
-gem "matrix", "~> 0.4.2"
