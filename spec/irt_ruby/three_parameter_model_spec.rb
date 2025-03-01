@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "matrix"
 
 RSpec.describe IrtRuby::ThreeParameterModel do
   let(:data_array) do
@@ -59,6 +58,36 @@ RSpec.describe IrtRuby::ThreeParameterModel do
       expect(results[:difficulties]).not_to be_empty
       expect(results[:discriminations]).not_to be_empty
       expect(results[:guessings]).not_to be_empty
+    end
+  end
+
+  describe "Missing data strategies" do
+    let(:data_with_missing) do
+      [
+        [1, nil, 0],
+        [nil, 0, 1]
+      ]
+    end
+
+    it "ignores missing data by default" do
+      model = IrtRuby::ThreeParameterModel.new(data_with_missing)
+      expect { model.fit }.not_to raise_error
+    end
+
+    it "treats missing as incorrect" do
+      model = IrtRuby::ThreeParameterModel.new(data_with_missing, missing_strategy: :treat_as_incorrect)
+      expect { model.fit }.not_to raise_error
+    end
+
+    it "treats missing as correct" do
+      model = IrtRuby::ThreeParameterModel.new(data_with_missing, missing_strategy: :treat_as_correct)
+      expect { model.fit }.not_to raise_error
+    end
+
+    it "raises an error on invalid strategy" do
+      expect do
+        IrtRuby::ThreeParameterModel.new(data_with_missing, missing_strategy: :not_a_valid_strategy)
+      end.to raise_error(ArgumentError)
     end
   end
 
@@ -160,6 +189,76 @@ RSpec.describe IrtRuby::ThreeParameterModel do
       final_ll = model.log_likelihood
 
       expect(final_ll).to be > initial_ll
+    end
+  end
+
+  describe "Additional tests" do
+    context "Repeated fitting" do
+      it "handles multiple calls to fit" do
+        model = described_class.new(data_array, max_iter: 100)
+        first_result = model.fit
+        second_result = model.fit
+
+        expect(second_result[:abilities].size).to eq(first_result[:abilities].size)
+        expect(second_result[:difficulties].size).to eq(first_result[:difficulties].size)
+        expect(second_result[:discriminations].size).to eq(first_result[:discriminations].size)
+        expect(second_result[:guessings].size).to eq(first_result[:guessings].size)
+      end
+    end
+
+    context "Deterministic seed" do
+      it "produces consistent results with the same seed" do
+        srand(123)
+        model1 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05)
+        result1 = model1.fit
+
+        srand(123)
+        model2 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05)
+        result2 = model2.fit
+
+        expect(result1[:abilities]).to eq(result2[:abilities])
+        expect(result1[:difficulties]).to eq(result2[:difficulties])
+        expect(result1[:discriminations]).to eq(result2[:discriminations])
+        expect(result1[:guessings]).to eq(result2[:guessings])
+      end
+    end
+
+    context "Larger random dataset" do
+      it "handles a moderately large dataset without error" do
+        n_examinees = 20
+        n_items = 8
+        big_data = Array.new(n_examinees) do
+          Array.new(n_items) { rand < 0.5 ? 1 : 0 }
+        end
+
+        model = described_class.new(big_data, max_iter: 300, learning_rate: 0.05)
+        expect { model.fit }.not_to raise_error
+
+        results = model.fit
+        expect(results[:abilities].size).to eq(n_examinees)
+        expect(results[:difficulties].size).to eq(n_items)
+        expect(results[:discriminations].size).to eq(n_items)
+        expect(results[:guessings].size).to eq(n_items)
+      end
+    end
+
+    context "Known parameter test (optional)" do
+      it "attempts to recover small synthetic data parameters" do
+        data = [
+          [1, 1],
+          [1, 1]
+        ]
+
+        model = described_class.new(data, max_iter: 200, learning_rate: 0.05)
+        results = model.fit
+
+        results[:discriminations].each do |disc|
+          expect(disc).to be_between(0.01, 5.0)
+        end
+        results[:guessings].each do |g|
+          expect(g).to be_between(0.0, 0.35)
+        end
+      end
     end
   end
 end

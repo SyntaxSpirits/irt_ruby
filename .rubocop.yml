@@ -35,3 +35,6 @@ Metrics/CyclomaticComplexity:
 
 Metrics/PerceivedComplexity:
   Enabled: false
+
+Style/HashLikeCase:
+  Enabled: false
