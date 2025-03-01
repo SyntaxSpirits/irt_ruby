@@ -1,7 +1,6 @@
-
 # IrtRuby
 
-IrtRuby is a Ruby gem that provides implementations of the Rasch model, the Two-Parameter model, and the Three-Parameter model for Item Response Theory (IRT). It allows you to estimate the abilities of individuals and the difficulties of items based on their responses to a set of items.
+IrtRuby is a Ruby gem that provides implementations of the **Rasch model**, the **Two-Parameter (2PL)** model, and the **Three-Parameter (3PL)** model for Item Response Theory (IRT). It allows you to estimate the **abilities** of individuals and the **difficulties** (and optionally **discriminations** and **guessing** parameters) of items based on their responses.
 
 ## Installation
 
@@ -25,14 +24,18 @@ gem install irt_ruby
 
 ## Usage
 
-Here's an example of how to use the IrtRuby gem:
+Here's a quick example using the Rasch model:
 
 ```ruby
 require 'irt_ruby'
 require 'matrix'
 
 # Create a sample response matrix
-data = Matrix[[1, 0, 1], [0, 1, 0], [1, 1, 1]]
+data = Matrix[
+  [1, 0, 1],
+  [0, 1, 0],
+  [1, 1, 1]
+]
 
 # Initialize the Rasch model with the response data
 model = IrtRuby::RaschModel.new(data)
@@ -41,9 +44,86 @@ model = IrtRuby::RaschModel.new(data)
 result = model.fit
 
 # Output the estimated abilities and difficulties
-puts "Abilities: #{result[:abilities]}"
+puts "Abilities:    #{result[:abilities]}"
 puts "Difficulties: #{result[:difficulties]}"
 ```
+### Using 2PL and 3PL Models
+```ruby
+two_pl_model = IrtRuby::TwoParameterModel.new(data)
+two_pl_result = two_pl_model.fit
+puts two_pl_result[:abilities]
+puts two_pl_result[:difficulties]
+puts two_pl_result[:discriminations]
+
+three_pl_model = IrtRuby::ThreeParameterModel.new(data)
+three_pl_result = three_pl_model.fit
+puts three_pl_result[:abilities]
+puts three_pl_result[:difficulties]
+puts three_pl_result[:discriminations]
+puts three_pl_result[:guessings]
+```
+
+## Handling Missing Data
+Real-world data often has missing responses. Each model (Rasch, 2PL, 3PL) accepts a `missing_strategy: option` to handle nil entries:
+
+- `:ignore` (default): Skip `nil` responses entirely in the log-likelihood and gradient calculations.
+- `:treat_as_incorrect`: Interpret `nil` as `0`.
+- `:treat_as_correct`: Interpret `nil` as `1`.
+
+For example:
+```ruby
+data_with_missing = [
+  [1, nil, 0],
+  [nil, 1,  0],
+  [0,  1,  1]
+]
+
+model = IrtRuby::RaschModel.new(
+  data_with_missing,
+  max_iter: 300,
+  learning_rate: 0.01,
+  missing_strategy: :treat_as_incorrect
+)
+result = model.fit
+
+puts "Abilities:    #{result[:abilities]}"
+puts "Difficulties: #{result[:difficulties]}"
+```
+This flexibility helps you handle datasets where missingness might signify a skipped item or an unanswered question.
+
+## Advanced Usage
+
+### Adaptive Learning Rate & Convergence
+By default, each model uses a gradient ascent with:
+
+- An adaptive learning rate (if log-likelihood decreases, it reverts the step and reduces the rate).
+- Multiple convergence checks (change in log-likelihood and average parameter updates).
+
+You can customize:
+
+- `max_iter`: The maximum number of iterations.
+- `tolerance` and `param_tolerance`: Convergence thresholds for log-likelihood change and parameter updates.
+- `learning_rate`: Initial learning rate.
+- `decay_factor`: Factor by which the learning rate is reduced on a failed step.
+
+Example:
+```ruby
+IrtRuby::TwoParameterModel.new(
+  data,
+  max_iter: 500,
+  tolerance: 1e-7,
+  param_tolerance: 1e-7,
+  learning_rate: 0.05,
+  decay_factor: 0.5
+)
+```
+### Parameter Clamping
+For 2PL and 3PL:
+
+- **Discriminations** (`a`) are clamped between `0.01` and `5.0`.
+- **Guessings** (`c`, 3PL only) are clamped to `[0.0, 0.35]`.
+
+This prevents extreme or invalid parameter estimates.
 
 ## Development
 
