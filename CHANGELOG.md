@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2025-01-14
+
+### Changed
+- **Code Quality**
+  - Updated RuboCop configuration to handle new cops and resolve style warnings
+  - Fixed operator precedence ambiguity in Three-Parameter Model calculations
+  - Added MFA requirement to gemspec metadata (RuboCop requirement)
+
+### Notes
+- This release maintains **full backward compatibility** with previous versions
+- All 46 existing tests continue to pass
+- Comprehensive performance benchmarking suite remains available via `bundle exec rake benchmark:all`
+
+---
+
 ## [0.2.0] - 2025-03-01
 
 ### Added

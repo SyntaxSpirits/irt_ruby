@@ -46,7 +46,7 @@ module IrtRuby
 
     # Probability for the 3PL model: c + (1-c)*sigmoid(a*(θ - b))
     def probability(theta, a, b, c)
-      c + (1.0 - c) * sigmoid(a * (theta - b))
+      c + ((1.0 - c) * sigmoid(a * (theta - b)))
     end
 
     def resolve_missing(resp)
