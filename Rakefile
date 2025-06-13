@@ -24,14 +24,14 @@ namespace :benchmark do
   end
 
   desc "Run all benchmarks"
-  task all: [:performance, :convergence] do
+  task all: %i[performance convergence] do
     puts "All benchmarks completed!"
   end
 
   desc "Run quick benchmarks (reduced dataset sizes)"
   task :quick do
     puts "Running quick performance benchmark..."
-    ENV['QUICK_BENCHMARK'] = '1'
+    ENV["QUICK_BENCHMARK"] = "1"
     ruby "benchmarks/performance_benchmark.rb"
   end
 end

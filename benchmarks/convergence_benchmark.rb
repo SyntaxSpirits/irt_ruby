@@ -1,14 +1,14 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'bundler/setup'
-require 'irt_ruby'
-require 'benchmark'
+require "bundler/setup"
+require "irt_ruby"
+require "benchmark"
 
 # Enhanced model classes that track iterations and convergence
 class TrackedRaschModel < IrtRuby::RaschModel
   attr_reader :iterations, :final_log_likelihood, :convergence_reason
-  
+
   def fit
     @iterations = 0
     prev_ll = log_likelihood
@@ -31,7 +31,7 @@ class TrackedRaschModel < IrtRuby::RaschModel
       else
         ll_diff = (current_ll - prev_ll).abs
         @final_log_likelihood = current_ll
-        
+
         if ll_diff < @tolerance && param_delta < @param_tolerance
           @convergence_reason = :tolerance_reached
           break
@@ -49,14 +49,14 @@ def generate_data(num_people, num_items, difficulty_range: (-2..2), ability_rang
   # Generate realistic IRT data based on known parameters
   true_abilities = Array.new(num_people) { rand(ability_range) }
   true_difficulties = Array.new(num_items) { rand(difficulty_range) }
-  
+
   data = Array.new(num_people) do |person|
     Array.new(num_items) do |item|
       prob = 1.0 / (1.0 + Math.exp(-(true_abilities[person] - true_difficulties[item])))
       rand < prob ? 1 : 0
     end
   end
-  
+
   { data: data, true_abilities: true_abilities, true_difficulties: true_difficulties }
 end
 
@@ -81,15 +81,15 @@ puts "-" * 50
 
 tolerance_configs.each do |config|
   puts "\nTolerance: #{config[:label]}"
-  
+
   times = []
   iterations = []
   convergence_reasons = []
-  
+
   5.times do
     time = Benchmark.measure do
       model = TrackedRaschModel.new(
-        data, 
+        data,
         max_iter: 2000,
         tolerance: config[:tolerance],
         param_tolerance: config[:param_tolerance],
@@ -101,17 +101,17 @@ tolerance_configs.each do |config|
     end.real
     times << time
   end
-  
+
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
   convergence_rate = convergence_reasons.count(:tolerance_reached) / 5.0
-  
-  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n", 
+
+  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
 end
 
 # Test convergence with different learning rates
-puts "\n" + "=" * 70
+puts "\n#{"=" * 70}"
 puts "Learning Rate Impact Analysis"
 puts "-" * 50
 
@@ -125,12 +125,11 @@ learning_rate_configs = [
 
 learning_rate_configs.each do |config|
   puts "\nLearning Rate: #{config[:label]}"
-  
+
   times = []
   iterations = []
   convergence_reasons = []
-  reverts = []
-  
+
   5.times do
     time = Benchmark.measure do
       model = TrackedRaschModel.new(
@@ -146,17 +145,17 @@ learning_rate_configs.each do |config|
     end.real
     times << time
   end
-  
+
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
   convergence_rate = convergence_reasons.count(:tolerance_reached) / 5.0
-  
-  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n", 
+
+  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
 end
 
 # Test convergence with different dataset characteristics
-puts "\n" + "=" * 70
+puts "\n#{"=" * 70}"
 puts "Dataset Characteristics Impact"
 puts "-" * 50
 
@@ -169,19 +168,19 @@ dataset_configs = [
 
 dataset_configs.each do |config|
   puts "\nDataset: #{config[:label]}"
-  
+
   times = []
   iterations = []
   convergence_reasons = []
-  
+
   3.times do
     dataset = generate_data(
-      config[:people], 
-      config[:items], 
-      difficulty_range: config[:diff_range], 
+      config[:people],
+      config[:items],
+      difficulty_range: config[:diff_range],
       ability_range: config[:ability_range]
     )
-    
+
     time = Benchmark.measure do
       model = TrackedRaschModel.new(
         dataset[:data],
@@ -196,17 +195,17 @@ dataset_configs.each do |config|
     end.real
     times << time
   end
-  
+
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
   convergence_rate = convergence_reasons.count(:tolerance_reached) / 3.0
-  
-  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n", 
+
+  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
 end
 
 # Test different missing data patterns
-puts "\n" + "=" * 70
+puts "\n#{"=" * 70}"
 puts "Missing Data Pattern Impact"
 puts "-" * 50
 
@@ -220,22 +219,22 @@ missing_configs = [
 
 missing_configs.each do |config|
   puts "\nMissing Data: #{config[:label]}"
-  
+
   # Generate data with missing values
   base_data = generate_data(100, 50)[:data]
-  
-  if config[:rate] > 0
-    data_with_missing = base_data.map do |row|
-      row.map { |resp| rand < config[:rate] ? nil : resp }
-    end
-  else
-    data_with_missing = base_data
-  end
-  
+
+  data_with_missing = if (config[:rate]).positive?
+                        base_data.map do |row|
+                          row.map { |resp| rand < config[:rate] ? nil : resp }
+                        end
+                      else
+                        base_data
+                      end
+
   times = []
   iterations = []
   convergence_reasons = []
-  
+
   3.times do
     time = Benchmark.measure do
       model = TrackedRaschModel.new(
@@ -252,15 +251,15 @@ missing_configs.each do |config|
     end.real
     times << time
   end
-  
+
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
   convergence_rate = convergence_reasons.count(:tolerance_reached) / 3.0
-  
-  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n", 
+
+  printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
 end
 
-puts "\n" + "=" * 70
+puts "\n#{"=" * 70}"
 puts "Convergence Analysis Complete!"
-puts "=" * 70 
+puts "=" * 70
