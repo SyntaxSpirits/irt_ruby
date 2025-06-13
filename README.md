@@ -125,9 +125,33 @@ For 2PL and 3PL:
 
 This prevents extreme or invalid parameter estimates.
 
+## Performance Benchmarks
+
+IRT Ruby includes comprehensive performance benchmarks to help you understand the computational characteristics of different models:
+
+```bash
+# Run all benchmarks (takes 8-15 minutes)
+bundle exec rake benchmark:all
+
+# Quick performance check (2-3 minutes)
+bundle exec rake benchmark:quick
+
+# Individual benchmark suites
+bundle exec rake benchmark:performance
+bundle exec rake benchmark:convergence
+```
+
+The benchmarks test:
+- **Performance**: Execution speed across dataset sizes (50 to 100,000 data points)
+- **Memory Usage**: Object allocation and memory efficiency
+- **Scaling**: How computational complexity grows with data size
+- **Convergence**: Optimization behavior under different conditions
+
+See `benchmarks/README.md` for detailed information about interpreting results.
+
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
 
 To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
