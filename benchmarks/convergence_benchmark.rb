@@ -223,7 +223,7 @@ missing_configs.each do |config|
   # Generate data with missing values
   base_data = generate_data(100, 50)[:data]
 
-  data_with_missing = if (config[:rate]).positive?
+  data_with_missing = if config[:rate].positive?
                         base_data.map do |row|
                           row.map { |resp| rand < config[:rate] ? nil : resp }
                         end
