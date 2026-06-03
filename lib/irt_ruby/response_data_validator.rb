@@ -6,7 +6,7 @@ module IrtRuby
     module_function
 
     def validate!(data)
-      raise ArgumentError, "response data must be a Matrix or array of arrays" unless data.respond_to?(:to_a)
+      raise ArgumentError, "response data must be a Matrix or array of arrays" unless valid_data_container?(data)
 
       data_array = data.to_a
 
@@ -48,6 +48,10 @@ module IrtRuby
 
     def valid_response?(value)
       value.nil? || value.eql?(0) || value.eql?(1)
+    end
+
+    def valid_data_container?(data)
+      data.is_a?(Array) || (defined?(::Matrix) && data.is_a?(::Matrix))
     end
   end
 end

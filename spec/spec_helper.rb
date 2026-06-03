@@ -27,6 +27,10 @@ RSpec.shared_examples "response data validation" do
   it "rejects non-numeric truthy, falsey, and string responses" do
     expect { described_class.new([[1, "1"], [false, nil]]) }.to raise_error(ArgumentError, /invalid value/)
   end
+
+  it "rejects hash input even when it can be converted to an array" do
+    expect { described_class.new({ [0] => 1 }) }.to raise_error(ArgumentError, /Matrix or array of arrays/)
+  end
 end
 
 RSpec.configure do |config|
