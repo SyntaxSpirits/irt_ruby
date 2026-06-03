@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Clarified that response data must be a `Matrix` or array of arrays containing only integer `0`, integer `1`, or `nil`; floats, strings, booleans, and other values are rejected.
+
+---
+
 ## [0.3.0] - 2025-01-14
 
 ### Changed

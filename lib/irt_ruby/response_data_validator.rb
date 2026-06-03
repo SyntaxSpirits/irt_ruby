@@ -2,6 +2,7 @@
 
 module IrtRuby
   # Validates response data accepted by IRT model constructors.
+  # @api private
   module ResponseDataValidator
     module_function
 
@@ -10,7 +11,7 @@ module IrtRuby
 
       data_array = data.to_a
 
-      raise ArgumentError, "response data must have at least one row" unless data_array.is_a?(Array) && data_array.any?
+      raise ArgumentError, "response data must have at least one row" unless data_array.any?
 
       validate_rows!(data_array)
       validate_values!(data_array)
@@ -27,11 +28,12 @@ module IrtRuby
       raise ArgumentError, "response data must have at least one column" if expected_columns.zero?
 
       data_array.each_with_index do |row, index|
-        raise ArgumentError, "response data row #{index} must be an Array" unless row.is_a?(Array)
+        row_number = index + 1
+        raise ArgumentError, "response data row #{row_number} must be an Array" unless row.is_a?(Array)
 
         next if row.size == expected_columns
 
-        raise ArgumentError, "response data must be rectangular; row #{index} has #{row.size} columns, expected #{expected_columns}"
+        raise ArgumentError, "response data must be rectangular; row #{row_number} has #{row.size} columns, expected #{expected_columns}"
       end
     end
 

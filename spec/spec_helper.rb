@@ -12,7 +12,7 @@ RSpec.shared_examples "response data validation" do
   end
 
   it "rejects ragged rows" do
-    expect { described_class.new([[1, 0], [1]]) }.to raise_error(ArgumentError, /rectangular/)
+    expect { described_class.new([[1, 0], [1]]) }.to raise_error(ArgumentError, /rectangular; row 2/)
   end
 
   it "rejects invalid response values" do
@@ -24,8 +24,16 @@ RSpec.shared_examples "response data validation" do
     expect { described_class.new([[1.0]]) }.to raise_error(ArgumentError, /invalid value 1\.0/)
   end
 
-  it "rejects non-numeric truthy, falsey, and string responses" do
-    expect { described_class.new([[1, "1"], [false, nil]]) }.to raise_error(ArgumentError, /invalid value/)
+  it "rejects string response values" do
+    expect { described_class.new([["1"]]) }.to raise_error(ArgumentError, /invalid value "1"/)
+  end
+
+  it "rejects false response values" do
+    expect { described_class.new([[false]]) }.to raise_error(ArgumentError, /invalid value false/)
+  end
+
+  it "rejects true response values" do
+    expect { described_class.new([[true]]) }.to raise_error(ArgumentError, /invalid value true/)
   end
 
   it "rejects hash input even when it can be converted to an array" do

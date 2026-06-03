@@ -47,6 +47,12 @@ result = model.fit
 puts "Abilities:    #{result[:abilities]}"
 puts "Difficulties: #{result[:difficulties]}"
 ```
+
+Response data passed to model constructors must be either a `Matrix` or an
+array of arrays. Each response value must be the integer `0`, the integer `1`,
+or `nil` for missing data; floats such as `0.0`/`1.0`, strings, booleans, and
+other values are rejected.
+
 ### Using 2PL and 3PL Models
 ```ruby
 two_pl_model = IrtRuby::TwoParameterModel.new(data)
