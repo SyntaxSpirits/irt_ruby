@@ -3,8 +3,6 @@
 module IrtRuby
   # Validates response data accepted by IRT model constructors.
   module ResponseDataValidator
-    VALID_RESPONSES = [0, 1, nil].freeze
-
     module_function
 
     def validate!(data)
@@ -40,12 +38,16 @@ module IrtRuby
     def validate_values!(data_array)
       data_array.each_with_index do |row, row_index|
         row.each_with_index do |value, column_index|
-          next if VALID_RESPONSES.include?(value)
+          next if valid_response?(value)
 
           raise ArgumentError,
-                "response data contains invalid value #{value.inspect} at row #{row_index}, column #{column_index}; allowed values are 0, 1, and nil"
+                "response data contains invalid value #{value.inspect} at row #{row_index + 1}, column #{column_index + 1}; allowed values are 0, 1, and nil"
         end
       end
+    end
+
+    def valid_response?(value)
+      value.nil? || value.eql?(0) || value.eql?(1)
     end
   end
 end

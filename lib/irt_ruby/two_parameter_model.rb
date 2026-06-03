@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "irt_ruby/response_data_validator"
+
 module IrtRuby
   # A class representing the Two-Parameter model (2PL) for IRT.
   # Incorporates:

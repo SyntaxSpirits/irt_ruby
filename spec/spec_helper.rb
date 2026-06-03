@@ -19,6 +19,11 @@ RSpec.shared_examples "response data validation" do
     expect { described_class.new([[1, 2], [0, nil]]) }.to raise_error(ArgumentError, /invalid value 2/)
   end
 
+  it "rejects float response values that compare equal to allowed integers" do
+    expect { described_class.new([[0.0]]) }.to raise_error(ArgumentError, /invalid value 0\.0/)
+    expect { described_class.new([[1.0]]) }.to raise_error(ArgumentError, /invalid value 1\.0/)
+  end
+
   it "rejects non-numeric truthy, falsey, and string responses" do
     expect { described_class.new([[1, "1"], [false, nil]]) }.to raise_error(ArgumentError, /invalid value/)
   end
