@@ -20,7 +20,7 @@ module IrtRuby
       # missing_strategy: :ignore (skip), :treat_as_incorrect, :treat_as_correct
 
       @data = data
-      @data_array = data.to_a
+      @data_array = ResponseDataValidator.validate!(data)
       num_rows = @data_array.size
       num_cols = @data_array.first.size
 

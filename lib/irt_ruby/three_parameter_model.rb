@@ -19,7 +19,7 @@ module IrtRuby
                    decay_factor: 0.5,
                    missing_strategy: :ignore)
       @data = data
-      @data_array = data.to_a
+      @data_array = ResponseDataValidator.validate!(data)
       num_rows = @data_array.size
       num_cols = @data_array.first.size
 
