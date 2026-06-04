@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Added executable specs for README usage examples to keep the documented Rasch, 2PL, 3PL, and missing-data flows aligned with the public API.
+
 ### Changed
 - Clarified that response data must be a `Matrix` or array of arrays containing only integer `0`, integer `1`, or `nil`; floats, strings, booleans, and other values are rejected.
 
