@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "irt_ruby/response_data_validator"
+
 module IrtRuby
   # A class representing the Two-Parameter model (2PL) for IRT.
   # Incorporates:
@@ -15,7 +17,7 @@ module IrtRuby
                    learning_rate: 0.01, decay_factor: 0.5,
                    missing_strategy: :ignore)
       @data = data
-      @data_array = data.to_a
+      @data_array = ResponseDataValidator.validate!(data)
       num_rows = @data_array.size
       num_cols = @data_array.first.size
 

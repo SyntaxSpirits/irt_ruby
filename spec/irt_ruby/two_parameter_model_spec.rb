@@ -3,6 +3,8 @@
 require "spec_helper"
 
 RSpec.describe IrtRuby::TwoParameterModel do
+  it_behaves_like "response data validation"
+
   let(:data_array) do
     [
       [1, 1, 0],

@@ -2,6 +2,45 @@
 
 require "irt_ruby"
 
+RSpec.shared_examples "response data validation" do
+  it "rejects empty data" do
+    expect { described_class.new([]) }.to raise_error(ArgumentError, /at least one row/)
+  end
+
+  it "rejects empty rows" do
+    expect { described_class.new([[]]) }.to raise_error(ArgumentError, /at least one column/)
+  end
+
+  it "rejects ragged rows" do
+    expect { described_class.new([[1, 0], [1]]) }.to raise_error(ArgumentError, /rectangular; row 2/)
+  end
+
+  it "rejects invalid response values" do
+    expect { described_class.new([[1, 2], [0, nil]]) }.to raise_error(ArgumentError, /invalid value 2/)
+  end
+
+  it "rejects float response values that compare equal to allowed integers" do
+    expect { described_class.new([[0.0]]) }.to raise_error(ArgumentError, /invalid value 0\.0/)
+    expect { described_class.new([[1.0]]) }.to raise_error(ArgumentError, /invalid value 1\.0/)
+  end
+
+  it "rejects string response values" do
+    expect { described_class.new([["1"]]) }.to raise_error(ArgumentError, /invalid value "1"/)
+  end
+
+  it "rejects false response values" do
+    expect { described_class.new([[false]]) }.to raise_error(ArgumentError, /invalid value false/)
+  end
+
+  it "rejects true response values" do
+    expect { described_class.new([[true]]) }.to raise_error(ArgumentError, /invalid value true/)
+  end
+
+  it "rejects hash input even when it can be converted to an array" do
+    expect { described_class.new({ [0] => 1 }) }.to raise_error(ArgumentError, /Matrix or array of arrays/)
+  end
+end
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
