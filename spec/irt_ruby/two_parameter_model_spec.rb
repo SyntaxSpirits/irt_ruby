@@ -4,6 +4,7 @@ require "spec_helper"
 
 RSpec.describe IrtRuby::TwoParameterModel do
   it_behaves_like "response data validation"
+  it_behaves_like "model optimization option validation"
 
   let(:data_array) do
     [

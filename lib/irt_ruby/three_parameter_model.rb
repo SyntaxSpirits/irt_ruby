@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "irt_ruby/model_options_validator"
 require "irt_ruby/response_data_validator"
 
 module IrtRuby
@@ -20,6 +21,12 @@ module IrtRuby
                    learning_rate: 0.01,
                    decay_factor: 0.5,
                    missing_strategy: :ignore)
+      ModelOptionsValidator.validate!(max_iter: max_iter,
+                                      tolerance: tolerance,
+                                      param_tolerance: param_tolerance,
+                                      learning_rate: learning_rate,
+                                      decay_factor: decay_factor)
+
       @data = data
       @data_array = ResponseDataValidator.validate!(data)
       num_rows = @data_array.size

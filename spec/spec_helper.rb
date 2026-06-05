@@ -41,6 +41,24 @@ RSpec.shared_examples "response data validation" do
   end
 end
 
+RSpec.shared_examples "model optimization option validation" do
+  let(:valid_data) { [[1, 0], [0, 1]] }
+
+  {
+    max_iter: [0, -1, 1.5, "100", nil],
+    tolerance: [0, -1e-6, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(1, 0), "1e-6", nil],
+    param_tolerance: [0, -1e-6, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(1, 0), "1e-6", nil],
+    learning_rate: [0, -0.01, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(0.01, 0), "0.01", nil],
+    decay_factor: [0, 1, -0.1, 1.1, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(0.5, 0), "0.5", nil]
+  }.each do |option, invalid_values|
+    invalid_values.each do |value|
+      it "rejects #{option}=#{value.inspect}" do
+        expect { described_class.new(valid_data, option => value) }.to raise_error(ArgumentError, /\A#{option} /)
+      end
+    end
+  end
+end
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
