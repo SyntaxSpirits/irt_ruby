@@ -10,16 +10,17 @@ on:
 
 jobs:
   test:
-
-    runs-on: ubuntu-latest
+    # Ruby 2.6/2.7 are still in the compatibility matrix and need the older Ubuntu image.
+    runs-on: ubuntu-22.04
 
     strategy:
+      fail-fast: false
       matrix:
-        ruby-version: [2.6, 2.7, 3.0, 3.1]
+        ruby-version: ['2.6', '2.7', '3.0', '3.1']
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -29,3 +30,31 @@ jobs:
 
       - name: Run tests
         run: bundle exec rspec
+
+  quality:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+
+      - name: Run RuboCop
+        run: bundle exec rubocop
+
+      - name: Build gem package
+        run: |
+          mkdir -p pkg
+          gem build irt_ruby.gemspec -o pkg/irt_ruby.gem
+
+      - name: Verify built gem installs
+        run: |
+          set -euo pipefail
+          gem install pkg/irt_ruby.gem --no-document
+          cd "$(mktemp -d)"
+          env -u BUNDLE_GEMFILE -u BUNDLE_PATH ruby -e "require 'irt_ruby'; result = IrtRuby::RaschModel.new([[1, 0], [0, 1]]).fit; raise 'missing abilities' unless result[:abilities].size == 2"

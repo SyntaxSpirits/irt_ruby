@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 - Added executable specs for README usage examples to keep the documented Rasch, 2PL, 3PL, and missing-data flows aligned with the public API.
 
 ### Changed
+- Added CI RuboCop and gem package build/install verification, and documented the local quality and packaging commands for contributors.
 - Clarified that response data must be a `Matrix` or array of arrays containing only integer `0`, integer `1`, or `nil`; floats, strings, booleans, and other values are rejected.
 
 ---
