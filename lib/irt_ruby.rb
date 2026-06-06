@@ -2,6 +2,7 @@
 
 require "irt_ruby/version"
 require "matrix"
+require "irt_ruby/model_options_validator"
 require "irt_ruby/response_data_validator"
 require "irt_ruby/rasch_model"
 require "irt_ruby/two_parameter_model"
