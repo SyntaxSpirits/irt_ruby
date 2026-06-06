@@ -169,14 +169,12 @@ RSpec.describe IrtRuby::TwoParameterModel do
       end
     end
 
-    context "Deterministic seed" do
-      it "yields consistent results with the same seed" do
-        srand(123)
-        model1 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05)
+    context "Constructor seed" do
+      it "yields consistent results with the same seed option" do
+        model1 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05, seed: 123)
         result1 = model1.fit
 
-        srand(123)
-        model2 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05)
+        model2 = described_class.new(data_array, max_iter: 200, learning_rate: 0.05, seed: 123)
         result2 = model2.fit
 
         expect(result1[:abilities]).to eq(result2[:abilities])
@@ -189,11 +187,12 @@ RSpec.describe IrtRuby::TwoParameterModel do
       it "handles a moderately sized dataset without error" do
         n_examinees = 20
         n_items = 8
+        rng = Random.new(123)
         big_data = Array.new(n_examinees) do
-          Array.new(n_items) { rand < 0.5 ? 1 : 0 }
+          Array.new(n_items) { rng.rand < 0.5 ? 1 : 0 }
         end
 
-        model = described_class.new(big_data, max_iter: 300, learning_rate: 0.05)
+        model = described_class.new(big_data, max_iter: 300, learning_rate: 0.05, seed: 123)
         expect { model.fit }.not_to raise_error
 
         results = model.fit
