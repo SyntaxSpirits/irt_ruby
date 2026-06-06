@@ -123,6 +123,20 @@ IrtRuby::TwoParameterModel.new(
   decay_factor: 0.5
 )
 ```
+
+### Reproducible Initialization
+Each model initializes parameters randomly. By default, constructors use Ruby's global random number generator, preserving the historical behavior and honoring any external `srand` calls. For reproducible model initialization without resetting or consuming global RNG state, pass `seed:`:
+
+```ruby
+model_a = IrtRuby::ThreeParameterModel.new(data, seed: 1234)
+model_b = IrtRuby::ThreeParameterModel.new(data, seed: 1234)
+
+# Same data, options, and seed produce identical fitted results.
+model_a.fit == model_b.fit #=> true
+```
+
+The `seed:` keyword is available for `RaschModel`, `TwoParameterModel`, and `ThreeParameterModel`.
+
 ### Parameter Clamping
 For 2PL and 3PL:
 

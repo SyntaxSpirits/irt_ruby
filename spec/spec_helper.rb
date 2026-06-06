@@ -59,6 +59,46 @@ RSpec.shared_examples "model optimization option validation" do
   end
 end
 
+RSpec.shared_examples "seeded model initialization" do |parameter_names|
+  let(:seeded_fit_options) { { max_iter: 50, learning_rate: 0.05 } }
+
+  def seeded_parameter_snapshot(model, parameter_names)
+    parameter_names.to_h do |parameter_name|
+      [parameter_name, model.instance_variable_get("@#{parameter_name}").dup]
+    end
+  end
+
+  it "produces identical initial and fitted parameters with the same seed" do
+    model1 = described_class.new(data_array, **seeded_fit_options, seed: 12_345)
+    model2 = described_class.new(data_array, **seeded_fit_options, seed: 12_345)
+
+    expect(seeded_parameter_snapshot(model1, parameter_names)).to eq(
+      seeded_parameter_snapshot(model2, parameter_names)
+    )
+    expect(model1.fit).to eq(model2.fit)
+  end
+
+  it "produces different initial parameters with different seeds" do
+    model1 = described_class.new(data_array, **seeded_fit_options, seed: 12_345)
+    model2 = described_class.new(data_array, **seeded_fit_options, seed: 54_321)
+
+    expect(seeded_parameter_snapshot(model1, parameter_names)).not_to eq(
+      seeded_parameter_snapshot(model2, parameter_names)
+    )
+  end
+
+  it "does not reset or consume Ruby's global random number generator" do
+    srand(98_765)
+    expected_values = Array.new(5) { rand }
+
+    srand(98_765)
+    described_class.new(data_array, **seeded_fit_options, seed: 12_345)
+    actual_values = Array.new(5) { rand }
+
+    expect(actual_values).to eq(expected_values)
+  end
+end
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
