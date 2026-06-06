@@ -55,7 +55,3 @@ All notable changes to this project are documented in this file.
 - This release remains **backward-compatible** with `0.1.x` in terms of existing usage; the default `:ignore` missing-data approach matches prior behavior.
 - If upgrading, simply update your gem and enjoy the new features.
 - For more details, see the updated [README](./README.md) and expanded test suites.
-
----
-
-*(If you have older versions below `0.2.0`, you can keep them documented similarly, e.g., `## [0.1.x] ...`, under this new entry.)*
