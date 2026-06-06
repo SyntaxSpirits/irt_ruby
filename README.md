@@ -70,7 +70,7 @@ puts three_pl_result[:guessings]
 ```
 
 ## Handling Missing Data
-Real-world data often has missing responses. Each model (Rasch, 2PL, 3PL) accepts a `missing_strategy: option` to handle nil entries:
+Real-world data often has missing responses. Each model (Rasch, 2PL, 3PL) accepts a `missing_strategy:` option to handle nil entries:
 
 - `:ignore` (default): Skip `nil` responses entirely in the log-likelihood and gradient calculations.
 - `:treat_as_incorrect`: Interpret `nil` as `0`.
