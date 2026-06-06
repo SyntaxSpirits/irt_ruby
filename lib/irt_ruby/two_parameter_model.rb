@@ -16,7 +16,7 @@ module IrtRuby
 
     def initialize(data, max_iter: 1000, tolerance: 1e-6, param_tolerance: 1e-6,
                    learning_rate: 0.01, decay_factor: 0.5,
-                   missing_strategy: :ignore)
+                   missing_strategy: :ignore, seed: nil)
       ModelOptionsValidator.validate!(max_iter: max_iter,
                                       tolerance: tolerance,
                                       param_tolerance: param_tolerance,
@@ -31,12 +31,13 @@ module IrtRuby
       raise ArgumentError, "missing_strategy must be one of #{MISSING_STRATEGIES}" unless MISSING_STRATEGIES.include?(missing_strategy)
 
       @missing_strategy = missing_strategy
+      @random = seed.nil? ? nil : Random.new(seed)
 
       # Initialize parameters
       # Typically: ability ~ 0, difficulty ~ 0, discrimination ~ 1
-      @abilities       = Array.new(num_rows)  { rand(-0.25..0.25) }
-      @difficulties    = Array.new(num_cols)  { rand(-0.25..0.25) }
-      @discriminations = Array.new(num_cols)  { rand(0.5..1.5) }
+      @abilities       = Array.new(num_rows)  { random_between(-0.25..0.25) }
+      @difficulties    = Array.new(num_cols)  { random_between(-0.25..0.25) }
+      @discriminations = Array.new(num_cols)  { random_between(0.5..1.5) }
 
       @max_iter         = max_iter
       @tolerance        = tolerance
@@ -48,6 +49,11 @@ module IrtRuby
     def sigmoid(x)
       1.0 / (1.0 + Math.exp(-x))
     end
+
+    def random_between(range)
+      @random ? @random.rand(range) : rand(range)
+    end
+    private :random_between
 
     def resolve_missing(resp)
       return [resp, false] unless resp.nil?

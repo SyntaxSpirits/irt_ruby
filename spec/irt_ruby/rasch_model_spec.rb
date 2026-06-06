@@ -5,6 +5,7 @@ require "spec_helper"
 RSpec.describe IrtRuby::RaschModel do
   it_behaves_like "response data validation"
   it_behaves_like "model optimization option validation"
+  it_behaves_like "seeded model initialization", %i[abilities difficulties]
 
   let(:data_array) do
     [
