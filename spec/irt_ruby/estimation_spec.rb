@@ -96,13 +96,53 @@ RSpec.describe "Estimation correctness" do
         expect(sd).to be_within(1e-12).of(1.0) unless model_class == IrtRuby::RaschModel
       end
 
-      it "keeps the likelihood unchanged when fixing the scale" do
-        model = model_class.new(mixed_data, max_iter: 1, seed: 1)
-        model.instance_variable_set(:@max_iter, 0)
-        before = model.log_likelihood
+      it "reports rescaled parameters with the same likelihood as the fitted ones" do
+        model = model_class.new(mixed_data, max_iter: 50, seed: 1)
+        results = model.fit
+        fitted = model.log_likelihood
+        parameters.each { |parameter| model.instance_variable_set("@#{parameter}", results[parameter]) }
+
+        expect(model.log_likelihood).to be_within(1e-9).of(fitted)
+      end
+
+      it "keeps improving on repeated fit calls" do
+        model = model_class.new([[1, 0], [0, 1]], seed: 1)
+        model.fit
+        first = model.log_likelihood
         model.fit
 
-        expect(model.log_likelihood).to be_within(1e-9).of(before)
+        expect(model.log_likelihood).to be >= first
+        expect(model.instance_variable_get(:@learning_rate)).to be > 1e-6
+      end
+
+      it "keeps only one of two perfectly separated blocks" do
+        data = [
+          [1, 0, 1, 1],
+          [0, 1, 1, 1],
+          [0, 0, 1, 0],
+          [0, 0, 0, 1]
+        ]
+        short = model_class.new(data, max_iter: 200, learning_rate: 0.1, seed: 1).fit
+        long = model_class.new(data, max_iter: 2000, learning_rate: 0.1, seed: 1).fit
+
+        expect(short[:abilities].count(&:nil?)).to eq(2)
+        expect(short[:difficulties].count(&:nil?)).to eq(2)
+        long[:abilities].compact.zip(short[:abilities].compact).each do |long_theta, short_theta|
+          expect(long_theta).to be_within(1e-3).of(short_theta)
+        end
+      end
+
+      it "keeps only one of two blocks that share no responses" do
+        data = [
+          [1, 0, nil, nil],
+          [0, 1, nil, nil],
+          [nil, nil, 1, 0],
+          [nil, nil, 0, 1]
+        ]
+        results = model_class.new(data, seed: 1).fit
+
+        expect(results[:abilities].count(&:nil?)).to eq(2)
+        expect(results[:difficulties].count(&:nil?)).to eq(2)
       end
 
       it "does not report convergence when the learning rate is too small to move" do
@@ -138,6 +178,44 @@ RSpec.describe "Estimation correctness" do
 
         expect(model.log_likelihood).to eq(before)
       end
+    end
+  end
+
+  [IrtRuby::TwoParameterModel, IrtRuby::ThreeParameterModel].each do |model_class|
+    it "#{model_class} checks stationarity on the reported scale" do
+      model = model_class.new([[1, 0], [0, 1]], seed: 1)
+      model.instance_variable_set(:@abilities, [-1e-7, 1e-7])
+      model.instance_variable_set(:@difficulties, [0.0, 0.0])
+      model.instance_variable_set(:@discriminations, [1.0, 1.0])
+      model.instance_variable_set(:@guessings, [0.0, 0.0]) if model_class == IrtRuby::ThreeParameterModel
+
+      expect(model.fit[:converged]).to be(false)
+    end
+  end
+
+  describe IrtRuby::ThreeParameterModel do
+    it "keeps the guessing information of respondents who answered every item incorrectly" do
+      data = [[1, 0], [0, 1], [0, 0]]
+      model = described_class.new(data, seed: 1)
+      model.instance_variable_set(:@abilities, [0.0, 0.0, 0.0])
+      model.instance_variable_set(:@difficulties, [0.0, 0.0])
+      model.instance_variable_set(:@discriminations, [1.0, 1.0])
+      model.instance_variable_set(:@guessings, [0.2, 0.2])
+      gradients = model.compute_gradient
+
+      expect(model.log_likelihood).to be_within(1e-12).of(2 * (Math.log(0.6) + Math.log(0.4) + Math.log(0.8)))
+      expect(gradients[3][0]).to be_within(1e-12).of((0.5 / 0.6) - (2 / 0.8))
+      expect(gradients[3][0]).to be_within(1e-6).of(numeric_derivative(model, :guessings, 0))
+    end
+
+    it "computes guessing gradients when the item response function underflows" do
+      model = described_class.new([[1, 0], [0, 1]], seed: 1)
+      model.instance_variable_set(:@abilities, [-750.0, 0.0])
+      model.instance_variable_set(:@difficulties, [0.0, 0.0])
+      model.instance_variable_set(:@discriminations, [1.0, 1.0])
+      model.instance_variable_set(:@guessings, [0.0, 0.0])
+
+      expect(model.compute_gradient[3][1]).to be_within(1e-12).of(0.0)
     end
   end
 

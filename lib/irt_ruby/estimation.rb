@@ -13,32 +13,6 @@ module IrtRuby
       x >= 0 ? -Math.log(1.0 + Math.exp(-x)) : x - Math.log(1.0 + Math.exp(x))
     end
 
-    # Returns [persons, items] flags marking which rows and columns have finite
-    # maximum-likelihood estimates. A person or item whose observed responses are
-    # all correct, all incorrect, or absent has none, so it is excluded; exclusion
-    # repeats until stable because dropping an item can make a person extreme.
-    def estimable(responses)
-      persons = Array.new(responses.size, true)
-      items = Array.new(responses.first.size, true)
-
-      loop do
-        next_persons = persons.each_index.map do |i|
-          persons[i] && mixed?(items.each_index.select { |j| items[j] }.map { |j| responses[i][j] })
-        end
-        next_items = items.each_index.map do |j|
-          items[j] && mixed?(next_persons.each_index.select { |i| next_persons[i] }.map { |i| responses[i][j] })
-        end
-        return [persons, items] if next_persons == persons && next_items == items
-
-        persons = next_persons
-        items = next_items
-      end
-    end
-
-    def mixed?(values)
-      values.include?(0) && values.include?(1)
-    end
-
     def each_response(responses, persons, items)
       responses.each_with_index do |row, i|
         next unless persons[i]
@@ -77,6 +51,15 @@ module IrtRuby
         blocked = (values[k] <= min && gradient[k].negative?) || (values[k] >= max && gradient[k].positive?)
         blocked ? 0.0 : gradient[k]
       end
+    end
+
+    # Location and scale of the estimable abilities, used to report parameters on a fixed scale.
+    def scale(abilities, active)
+      values = abilities.select.with_index { |_, i| active[i] }
+      return [0.0, 1.0] if values.empty?
+
+      mean, sd = mean_and_sd(values)
+      [mean, sd.zero? ? 1.0 : sd]
     end
 
     def mean_and_sd(values)

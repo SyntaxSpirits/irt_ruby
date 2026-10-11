@@ -3,6 +3,7 @@
 require "irt_ruby/estimation"
 require "irt_ruby/model_options_validator"
 require "irt_ruby/response_data_validator"
+require "irt_ruby/response_graph"
 
 module IrtRuby
   # A class representing the Rasch model for Item Response Theory (ability - difficulty).
@@ -11,7 +12,7 @@ module IrtRuby
   # - Missing data handling (skip nil)
   # - Multiple convergence checks (log-likelihood + parameter updates)
   # - Exclusion of extreme response patterns, which have no finite estimates
-  # - Identification by centering abilities at zero
+  # - Identification by reporting abilities centered at zero
   class RaschModel
     MISSING_STRATEGIES = %i[ignore treat_as_incorrect treat_as_correct].freeze
 
@@ -44,7 +45,7 @@ module IrtRuby
       @random = seed.nil? ? nil : Random.new(seed)
 
       @responses = data_array.map { |row| row.map { |resp| resolve_missing(resp).first } }
-      @active_persons, @active_items = Estimation.estimable(@responses)
+      @active_persons, @active_items = ResponseGraph.estimable(@responses)
       @person_counts, @item_counts = Estimation.response_counts(@responses, @active_persons, @active_items)
 
       # Initialize parameters near zero
@@ -125,8 +126,8 @@ module IrtRuby
       deltas.sum / deltas.size
     end
 
-    # Returns estimates with nil for persons and items excluded as extreme or
-    # unobserved, plus whether the convergence criteria were met.
+    # Returns estimates on the identified scale, with nil for persons and items that
+    # have no finite estimate on it, plus whether the convergence criteria were met.
     def fit
       converged = false
       iterations = 0
@@ -159,12 +160,12 @@ module IrtRuby
           end
         end
 
-        center_abilities
       end
 
+      mean, = Estimation.scale(@abilities, @active_persons)
       {
-        abilities: Estimation.estimates(@abilities, @active_persons),
-        difficulties: Estimation.estimates(@difficulties, @active_items),
+        abilities: Estimation.estimates(@abilities.map { |theta| theta - mean }, @active_persons),
+        difficulties: Estimation.estimates(@difficulties.map { |b| b - mean }, @active_items),
         converged: converged,
         iterations: iterations
       }
@@ -175,12 +176,5 @@ module IrtRuby
       Estimation.stationary?(grad_abilities, [grad_difficulties], @person_counts, @item_counts, @gradient_tolerance)
     end
     private :stationary?
-
-    def center_abilities
-      mean, = Estimation.mean_and_sd(@abilities.select.with_index { |_, i| @active_persons[i] })
-      @abilities.map! { |theta| theta - mean }
-      @difficulties.map! { |b| b - mean }
-    end
-    private :center_abilities
   end
 end

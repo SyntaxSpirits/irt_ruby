@@ -3,6 +3,7 @@
 require "irt_ruby/estimation"
 require "irt_ruby/model_options_validator"
 require "irt_ruby/response_data_validator"
+require "irt_ruby/response_graph"
 
 module IrtRuby
   # A class representing the Three-Parameter model (3PL) for Item Response Theory.
@@ -13,7 +14,7 @@ module IrtRuby
   # - Multiple convergence checks
   # - Separate gradient calculation & updates
   # - Exclusion of extreme response patterns, which have no finite estimates
-  # - Identification by standardizing abilities to mean 0 and SD 1
+  # - Identification by reporting abilities standardized to mean 0 and SD 1
   class ThreeParameterModel
     MISSING_STRATEGIES = %i[ignore treat_as_incorrect treat_as_correct].freeze
     DISCRIMINATION_BOUNDS = [0.01, 5.0].freeze
@@ -45,8 +46,9 @@ module IrtRuby
       @random = seed.nil? ? nil : Random.new(seed)
 
       @responses = data_array.map { |row| row.map { |resp| resolve_missing(resp).first } }
-      @active_persons, @active_items = Estimation.estimable(@responses)
+      @active_persons, @active_items = ResponseGraph.estimable(@responses)
       @person_counts, @item_counts = Estimation.response_counts(@responses, @active_persons, @active_items)
+      @floor_items = floor_items
 
       # Initialize parameters
       @abilities       = Array.new(num_rows)  { random_between(-0.25..0.25) }
@@ -101,6 +103,7 @@ module IrtRuby
                 Math.log(1.0 - c) + Estimation.log_sigmoid(-z)
               end
       end
+      @floor_items.each { |j| ll += Math.log(1.0 - @guessings[j]) }
       ll
     end
 
@@ -116,21 +119,39 @@ module IrtRuby
         b     = @difficulties[j]
         c     = @guessings[j]
 
-        # With P = c + (1 - c) * s and s = sigmoid(a * (theta - b)):
-        # dLL/dz = (u - P) * s / P and dLL/dc = (u - P) / ((1 - c) * P).
-        s     = sigmoid(a * (theta - b))
+        # With P = c + (1 - c) * s and s = sigmoid(z), z = a * (theta - b):
+        # dLL/dz = (u - P) * s / P, and dLL/dc = (1 - s) / P if u = 1, -1 / (1 - c) if u = 0.
+        z     = a * (theta - b)
+        s     = sigmoid(z)
         prob  = c + ((1.0 - c) * s)
-        error = value - prob
-        dz    = prob.zero? ? error : error * s / prob
+        dz    = c.zero? ? value - s : (value - prob) * s / prob
 
         grad_abilities[i]       += dz * a
         grad_difficulties[j]    -= dz * a
         grad_discriminations[j] += dz * (theta - b)
-        grad_guessings[j]       += prob.zero? ? 0.0 : error / ((1.0 - c) * prob)
+        grad_guessings[j]       += if value.zero?
+                                     -1.0 / (1.0 - c)
+                                   else
+                                     c.zero? ? Math.exp(-z) : (1.0 - s) / prob
+                                   end
       end
+      @floor_items.each { |j| grad_guessings[j] -= 1.0 / (1.0 - @guessings[j]) }
 
       [grad_abilities, grad_difficulties, grad_discriminations, grad_guessings]
     end
+
+    # Excluded respondents who answered every estimable item incorrectly have ability
+    # tending to -infinity, where P = c, so each of those responses still contributes
+    # log(1 - c) to the likelihood of its item's guessing parameter.
+    def floor_items
+      @responses.each_index.flat_map do |i|
+        next [] if @active_persons[i]
+
+        items = @responses[i].each_index.select { |j| @active_items[j] && !@responses[i][j].nil? }
+        items.all? { |j| @responses[i][j].zero? } ? items : []
+      end
+    end
+    private :floor_items
 
     def apply_gradient_update(ga, gd, gdisc, gc)
       old_a    = @abilities.dup
@@ -165,8 +186,8 @@ module IrtRuby
       deltas.sum / deltas.size
     end
 
-    # Returns estimates with nil for persons and items excluded as extreme or
-    # unobserved, plus whether the convergence criteria were met.
+    # Returns estimates on the identified scale, with nil for persons and items that
+    # have no finite estimate on it, plus whether the convergence criteria were met.
     def fit
       converged = false
       iterations = 0
@@ -200,36 +221,30 @@ module IrtRuby
           end
         end
 
-        standardize_abilities
       end
 
+      mean, sd = Estimation.scale(@abilities, @active_persons)
       {
-        abilities: Estimation.estimates(@abilities, @active_persons),
-        difficulties: Estimation.estimates(@difficulties, @active_items),
-        discriminations: Estimation.estimates(@discriminations, @active_items),
+        abilities: Estimation.estimates(@abilities.map { |theta| (theta - mean) / sd }, @active_persons),
+        difficulties: Estimation.estimates(@difficulties.map { |b| (b - mean) / sd }, @active_items),
+        discriminations: Estimation.estimates(@discriminations.map { |a| a * sd }, @active_items),
         guessings: Estimation.estimates(@guessings, @active_items),
         converged: converged,
         iterations: iterations
       }
     end
 
+    # Gradients are compared on the reported scale (theta' = (theta - m) / sd,
+    # b' = (b - m) / sd, a' = a * sd), where they scale by sd, sd and 1 / sd.
     def stationary?
       ga, gd, gdisc, gc = compute_gradient
       gdisc = Estimation.project(gdisc, @discriminations, *DISCRIMINATION_BOUNDS)
       gc = Estimation.project(gc, @guessings, *GUESSING_BOUNDS)
-      Estimation.stationary?(ga, [gd, gdisc, gc], @person_counts, @item_counts, @gradient_tolerance)
+      _, sd = Estimation.scale(@abilities, @active_persons)
+      Estimation.stationary?(ga.map { |g| g * sd },
+                             [gd.map { |g| g * sd }, gdisc.map { |g| g / sd }, gc],
+                             @person_counts, @item_counts, @gradient_tolerance)
     end
     private :stationary?
-
-    # Rescales the latent trait without changing the likelihood: theta' = (theta - m) / s,
-    # b' = (b - m) / s, a' = a * s.
-    def standardize_abilities
-      mean, sd = Estimation.mean_and_sd(@abilities.select.with_index { |_, i| @active_persons[i] })
-      sd = 1.0 if sd.zero?
-      @abilities.map! { |theta| (theta - mean) / sd }
-      @difficulties.map! { |b| (b - mean) / sd }
-      @discriminations.map! { |a| a * sd }
-    end
-    private :standardize_abilities
   end
 end
