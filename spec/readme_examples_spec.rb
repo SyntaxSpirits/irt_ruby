@@ -52,4 +52,17 @@ RSpec.describe "README examples" do
     expect(result[:abilities].size).to eq(data_with_missing.size)
     expect(result[:difficulties].size).to eq(data_with_missing.first.size)
   end
+
+  it "runs the item bank example" do
+    rng = Random.new(1)
+    responses = Array.new(80) { Array.new(4) { rng.rand < 0.6 ? 1 : 0 } }
+    results = IrtRuby::TwoParameterModel.new(responses, seed: 1).fit
+    bank = IrtRuby::ItemBank.from_fit(results, item_ids: %w[q1 q2 q3 q4], metadata: { source: "spring pilot" })
+
+    restored = IrtRuby::ItemBank.from_json(bank.to_json)
+
+    expect(restored).to eq(bank)
+    expect(restored.fetch("q2").c).to eq(0.0)
+    expect(restored.probability("q2", 0.5)).to be_between(0, 1)
+  end
 end
