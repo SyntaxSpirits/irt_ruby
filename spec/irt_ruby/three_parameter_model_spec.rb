@@ -50,9 +50,9 @@ RSpec.describe IrtRuby::ThreeParameterModel do
     it "handles nil entries gracefully without raising errors" do
       missing_data = [
         [1, nil, 0],
-        [1,  0,   1],
-        [0,  1,   nil],
-        [1,  1,   1]
+        [1, 0, 1],
+        [0, 1, nil],
+        [1, 1, 1]
       ]
       model = described_class.new(missing_data, max_iter: 200, learning_rate: 0.05)
       expect { model.fit }.not_to raise_error
@@ -159,9 +159,9 @@ RSpec.describe IrtRuby::ThreeParameterModel do
 
     it "handles an entire column missing" do
       data = [
-        [1,  nil, 0],
-        [1,  nil, 1],
-        [0,  nil, 1]
+        [1, nil, 0],
+        [1, nil, 1],
+        [0, nil, 1]
       ]
       model = described_class.new(data, max_iter: 200)
       expect { model.fit }.not_to raise_error

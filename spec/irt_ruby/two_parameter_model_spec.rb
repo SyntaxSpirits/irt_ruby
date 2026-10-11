@@ -48,8 +48,8 @@ RSpec.describe IrtRuby::TwoParameterModel do
     it "does not raise an error with missing data (nil) in 2PL" do
       missing_data = [
         [1, nil, 0],
-        [1,  0,   1],
-        [0,  1,   nil]
+        [1, 0, 1],
+        [0, 1, nil]
       ]
       model = described_class.new(missing_data, max_iter: 200, learning_rate: 0.05)
       expect { model.fit }.not_to raise_error
