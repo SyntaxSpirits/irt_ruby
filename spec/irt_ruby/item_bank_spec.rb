@@ -67,6 +67,43 @@ RSpec.describe IrtRuby::ItemBank do
 
       expect { described_class.from_fit(results, item_ids: %w[q1 q2]) }.to raise_error(ArgumentError, /one id per item \(4\)/)
     end
+
+    it "records the ability distribution of the calibration sample" do
+      rasch = IrtRuby::RaschModel.new(data, max_iter: 50, seed: 1).fit
+      two_pl = IrtRuby::TwoParameterModel.new(data, max_iter: 50, seed: 1).fit
+      abilities = rasch[:abilities].compact
+      mean, sd = IrtRuby::Estimation.mean_and_sd(abilities)
+
+      expect(described_class.from_fit(rasch, item_ids: item_ids).ability_distribution).to eq("mean" => mean, "sd" => sd)
+      distribution = described_class.from_fit(two_pl, item_ids: item_ids).ability_distribution
+      expect(distribution["mean"]).to be_within(1e-12).of(0.0)
+      expect(distribution["sd"]).to be_within(1e-12).of(1.0)
+    end
+
+    it "never invents values for estimated parameters" do
+      expect { described_class.from_fit({ difficulties: [0.0, 1.0], discriminations: [2.0] }, item_ids: %w[x y]) }
+        .to raise_error(ArgumentError, /discriminations must be an Array with one value per item \(2\)/)
+      expect { described_class.from_fit({ difficulties: [0.0], guessings: [0.1] }, item_ids: %w[x]) }
+        .to raise_error(ArgumentError, /3pl fit results must include discriminations/)
+      expect { described_class.from_fit({ difficulties: [0.0], discriminations: [nil] }, item_ids: %w[x]) }
+        .to raise_error(ArgumentError, /items without estimates: x/)
+    end
+
+    it "validates every id, including those of excluded items" do
+      results = { difficulties: [0.0, nil] }
+
+      expect { described_class.from_fit(results, item_ids: %w[x x], exclude_unestimated: true) }
+        .to raise_error(ArgumentError, /ids must be unique/)
+      expect { described_class.from_fit(results, item_ids: ["x", 7], exclude_unestimated: true) }
+        .to raise_error(ArgumentError, /item 2 id must be a non-empty String/)
+    end
+
+    it "rejects metadata that is not a Hash" do
+      results = IrtRuby::RaschModel.new(data, max_iter: 5, seed: 1).fit
+
+      expect { described_class.from_fit(results, item_ids: item_ids, metadata: "x") }
+        .to raise_error(ArgumentError, /metadata must be a Hash/)
+    end
   end
 
   describe "JSON" do
@@ -90,6 +127,15 @@ RSpec.describe IrtRuby::ItemBank do
         "metadata" => { "source" => "test" },
         "items" => items_3pl
       )
+    end
+
+    it "round-trips the ability distribution" do
+      bank = described_class.new(model: "rasch", items: [{ "id" => "x", "b" => 0.5 }],
+                                 ability_distribution: { mean: 0.1, sd: 1.3 })
+      restored = described_class.from_json(bank.to_json)
+
+      expect(restored.ability_distribution).to eq("mean" => 0.1, "sd" => 1.3)
+      expect(JSON.parse(bank.to_json)["ability_distribution"]).to eq("mean" => 0.1, "sd" => 1.3)
     end
 
     it "fills in fixed parameters for rasch and 2pl items" do
@@ -132,6 +178,7 @@ RSpec.describe IrtRuby::ItemBank do
       "a missing difficulty" => ["rasch", [{ "id" => "x" }], /"x": b must be a finite number/],
       "a non-numeric difficulty" => ["rasch", [{ "id" => "x", "b" => "0" }], /b must be a finite number/],
       "an infinite difficulty" => ["rasch", [{ "id" => "x", "b" => Float::INFINITY }], /b must be a finite number/],
+      "a parameter that overflows to infinity" => ["rasch", [{ "id" => "x", "b" => 10**400 }], /b must be a finite number/],
       "a rasch discrimination other than 1" => ["rasch", [{ "id" => "x", "a" => 1.5, "b" => 0 }], /rasch items must have a = 1/],
       "a missing 2pl discrimination" => ["2pl", [{ "id" => "x", "b" => 0 }], /a must be a finite number/],
       "a non-positive discrimination" => ["2pl", [{ "id" => "x", "a" => 0, "b" => 0 }], /a must be positive/],
@@ -142,6 +189,21 @@ RSpec.describe IrtRuby::ItemBank do
     }.each do |description, (model, items, message)|
       it "rejects #{description}" do
         expect { build(model, items) }.to raise_error(ArgumentError, message)
+      end
+    end
+
+    it "stores a rasch discrimination within tolerance as exactly 1" do
+      expect(build("rasch", [{ "id" => "x", "a" => 1.0000000005, "b" => 0 }]).fetch("x").a).to eq(1.0)
+    end
+
+    {
+      "a non-Hash" => [[0.0, 1.0], /must be a Hash with mean and sd/],
+      "a missing sd" => [{ "mean" => 0.0 }, /ability_distribution sd must be a finite number/],
+      "a non-positive sd" => [{ "mean" => 0.0, "sd" => 0 }, /sd must be positive/]
+    }.each do |description, (distribution, message)|
+      it "rejects an ability distribution with #{description}" do
+        expect { described_class.new(model: "rasch", items: [{ "id" => "x", "b" => 0 }], ability_distribution: distribution) }
+          .to raise_error(ArgumentError, message)
       end
     end
 
@@ -164,6 +226,16 @@ RSpec.describe IrtRuby::ItemBank do
       expect(bank.metadata).to eq("notes" => ["first"])
     end
 
+    it "is not affected by later changes to the model name" do
+      model = +"3pl"
+      bank = described_class.new(model: model, items: items_3pl)
+      model.replace("rasch")
+
+      expect(bank.model).to eq("3pl")
+      expect(bank.model).to be_frozen
+      expect { bank.to_h["model"].replace("4pl") }.to raise_error(FrozenError)
+    end
+
     it "freezes the bank, its items, and its metadata" do
       bank = described_class.new(model: "3pl", items: items_3pl, metadata: { "notes" => ["first"] })
 
@@ -171,6 +243,19 @@ RSpec.describe IrtRuby::ItemBank do
       expect(bank.first).to be_frozen
       expect(bank.first.id).to be_frozen
       expect(bank.metadata["notes"]).to be_frozen
+    end
+  end
+
+  describe "equality" do
+    it "keeps eql? consistent with hash" do
+      bank1 = described_class.new(model: "rasch", items: [{ "id" => "x", "b" => 0 }], metadata: { "n" => 1 })
+      bank2 = described_class.new(model: "rasch", items: [{ "id" => "x", "b" => 0 }], metadata: { "n" => 1.0 })
+      bank3 = described_class.new(model: "rasch", items: [{ "id" => "x", "b" => 0 }], metadata: { "n" => 1 })
+
+      expect(bank1).to eq(bank2)
+      expect(bank1.eql?(bank2)).to be(false)
+      expect(bank1.eql?(bank3)).to be(true)
+      expect({ bank1 => :present }[bank3]).to eq(:present)
     end
   end
 

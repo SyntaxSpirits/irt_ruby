@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
-- Added `IrtRuby::ItemBank`, an immutable set of calibrated items with stable string ids. Banks are built from fit results with `ItemBank.from_fit` (recording calibration provenance), saved and loaded as versioned JSON (`to_json`, `ItemBank.from_json`), validated per model, and expose item lookup and response probabilities. The README documents the format and an export recipe for R's mirt.
+- Added `IrtRuby::ItemBank`, an immutable set of calibrated items with stable string ids. Banks are built from fit results with `ItemBank.from_fit` (recording calibration provenance), saved and loaded as versioned JSON (`to_json`, `ItemBank.from_json`), validated per model, carry the calibration ability distribution, and expose item lookup and response probabilities. The README documents the format and an export recipe for R's mirt.
 
 ## [0.4.0] - 2026-10-11
 

@@ -181,7 +181,7 @@ bank.fetch("q2")             # IrtRuby::ItemBank::Item with id, a, b, c
 bank.probability("q2", 0.5)  # probability of a correct answer at theta = 0.5
 ```
 
-`from_fit` infers the model from the result keys and records provenance in `metadata`: the irt_ruby version, the scale convention, and the `converged` and `iterations` values of the fit. Items whose estimates are `nil` raise an error; pass `exclude_unestimated: true` to leave them out and list their ids under `metadata["unestimated_items"]`.
+`from_fit` infers the model from the result keys and records provenance in `metadata`: the irt_ruby version, the scale convention, and the `converged` and `iterations` values of the fit. It also stores the mean and SD of the estimated abilities as `ability_distribution`, describing the calibration sample on the bank's scale. Items with a `nil` estimate raise an error; pass `exclude_unestimated: true` to leave them out and list their ids under `metadata["unestimated_items"]`.
 
 The JSON format is:
 
@@ -190,6 +190,7 @@ The JSON format is:
   "format": "irt_ruby.item_bank",
   "format_version": 1,
   "model": "2pl",
+  "ability_distribution": { "mean": 0.0, "sd": 1.0 },
   "metadata": { "software": "irt_ruby 0.4.0", "converged": true },
   "items": [
     { "id": "q1", "a": 0.87, "b": 1.12, "c": 0.0 }
@@ -197,7 +198,7 @@ The JSON format is:
 }
 ```
 
-Parameters use the logistic metric without a scaling constant (no `D = 1.7`): `P(correct | theta) = c + (1 - c) / (1 + exp(-a * (theta - b)))`. `model` is `"rasch"` (`a` = 1, `c` = 0), `"2pl"` (`c` = 0), or `"3pl"` (0 <= `c` < 1); for Rasch and 2PL the fixed parameters may be omitted. Banks with a different `format` or a newer `format_version` are rejected.
+Parameters use the logistic metric without a scaling constant (no `D = 1.7`): `P(correct | theta) = c + (1 - c) / (1 + exp(-a * (theta - b)))`. `model` is `"rasch"` (`a` = 1, `c` = 0), `"2pl"` (`c` = 0), or `"3pl"` (0 <= `c` < 1); for Rasch and 2PL the fixed parameters may be omitted. `ability_distribution` is optional: the mean and SD of abilities in the calibration population, on the bank's scale. `metadata` is free-form JSON. Banks with a different `format` or a newer `format_version` are rejected.
 
 ### Importing from R's mirt
 
@@ -208,18 +209,22 @@ library(mirt)
 library(jsonlite)
 
 mod <- mirt(responses, 1, itemtype = "2PL")
-pars <- coef(mod, IRTpars = TRUE, simplify = TRUE)$items  # columns a, b, g, u
+cf <- coef(mod, IRTpars = TRUE, simplify = TRUE)
+pars <- cf$items  # columns a, b, g, u
 stopifnot(all(pars[, "u"] == 1))
 
 bank <- list(
   format = "irt_ruby.item_bank", format_version = 1, model = "2pl",
+  ability_distribution = list(mean = unname(cf$means[1]), sd = sqrt(unname(cf$cov[1, 1]))),
   metadata = list(software = paste("mirt", packageVersion("mirt")), estimation = "marginal maximum likelihood"),
   items = lapply(rownames(pars), function(id) list(id = id, a = pars[id, "a"], b = pars[id, "b"], c = pars[id, "g"]))
 )
-writeLines(toJSON(bank, auto_unbox = TRUE, digits = NA), "item_bank.json")
+writeLines(toJSON(bank, auto_unbox = TRUE, digits = I(17)), "item_bank.json")
 ```
 
-Use `model = "3pl"` for `itemtype = "3PL"`, and `model = "rasch"` for `itemtype = "Rasch"`. Note the scale conventions differ: mirt fixes the ability distribution to mean 0 and SD 1 in the population, while irt_ruby standardizes the estimated abilities of the calibration sample.
+`digits = I(17)` writes 17 significant digits, enough to reproduce every double exactly; `digits = NA` writes only 15. Use `model = "3pl"` for `itemtype = "3PL"` and `model = "rasch"` for `itemtype = "Rasch"`.
+
+The scale conventions differ. For 2PL and 3PL, mirt fixes the ability distribution to mean 0 and SD 1 in the population, while irt_ruby standardizes the estimated abilities of the calibration sample. For Rasch, mirt fixes the slopes to 1 and estimates the ability variance, while irt_ruby only centers the estimated abilities. Either way, `ability_distribution` records the distribution that goes with the item parameters.
 
 ## Performance Benchmarks
 
