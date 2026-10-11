@@ -245,22 +245,16 @@ RSpec.describe IrtRuby::ThreeParameterModel do
       end
     end
 
-    context "Known parameter test (optional)" do
-      it "attempts to recover small synthetic data parameters" do
-        data = [
-          [1, 1],
-          [1, 1]
-        ]
-
-        model = described_class.new(data, max_iter: 200, learning_rate: 0.05)
+    context "Extreme response patterns" do
+      it "returns nil for every parameter when all responses are correct" do
+        model = described_class.new([[1, 1], [1, 1]], max_iter: 200, learning_rate: 0.05)
         results = model.fit
 
-        results[:discriminations].each do |disc|
-          expect(disc).to be_between(0.01, 5.0)
-        end
-        results[:guessings].each do |g|
-          expect(g).to be_between(0.0, 0.35)
-        end
+        expect(results[:abilities]).to eq([nil, nil])
+        expect(results[:difficulties]).to eq([nil, nil])
+        expect(results[:discriminations]).to eq([nil, nil])
+        expect(results[:guessings]).to eq([nil, nil])
+        expect(results[:iterations]).to eq(0)
       end
     end
   end

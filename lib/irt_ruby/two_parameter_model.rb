@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "irt_ruby/estimation"
 require "irt_ruby/model_options_validator"
 require "irt_ruby/response_data_validator"
 
@@ -11,27 +12,35 @@ module IrtRuby
   # - Parameter clamping for discrimination
   # - Multiple convergence checks
   # - Separate gradient calculation & parameter update
+  # - Exclusion of extreme response patterns, which have no finite estimates
+  # - Identification by standardizing abilities to mean 0 and SD 1
   class TwoParameterModel
     MISSING_STRATEGIES = %i[ignore treat_as_incorrect treat_as_correct].freeze
+    DISCRIMINATION_BOUNDS = [0.01, 5.0].freeze
 
     def initialize(data, max_iter: 1000, tolerance: 1e-6, param_tolerance: 1e-6,
+                   gradient_tolerance: 1e-3,
                    learning_rate: 0.01, decay_factor: 0.5,
                    missing_strategy: :ignore, seed: nil)
       ModelOptionsValidator.validate!(max_iter: max_iter,
                                       tolerance: tolerance,
                                       param_tolerance: param_tolerance,
+                                      gradient_tolerance: gradient_tolerance,
                                       learning_rate: learning_rate,
                                       decay_factor: decay_factor)
 
-      @data = data
-      @data_array = ResponseDataValidator.validate!(data)
-      num_rows = @data_array.size
-      num_cols = @data_array.first.size
+      data_array = ResponseDataValidator.validate!(data)
+      num_rows = data_array.size
+      num_cols = data_array.first.size
 
       raise ArgumentError, "missing_strategy must be one of #{MISSING_STRATEGIES}" unless MISSING_STRATEGIES.include?(missing_strategy)
 
       @missing_strategy = missing_strategy
       @random = seed.nil? ? nil : Random.new(seed)
+
+      @responses = data_array.map { |row| row.map { |resp| resolve_missing(resp).first } }
+      @active_persons, @active_items = Estimation.estimable(@responses)
+      @person_counts, @item_counts = Estimation.response_counts(@responses, @active_persons, @active_items)
 
       # Initialize parameters
       # Typically: ability ~ 0, difficulty ~ 0, discrimination ~ 1
@@ -39,11 +48,12 @@ module IrtRuby
       @difficulties    = Array.new(num_cols)  { random_between(-0.25..0.25) }
       @discriminations = Array.new(num_cols)  { random_between(0.5..1.5) }
 
-      @max_iter         = max_iter
-      @tolerance        = tolerance
-      @param_tolerance  = param_tolerance
-      @learning_rate    = learning_rate
-      @decay_factor     = decay_factor
+      @max_iter           = max_iter
+      @tolerance          = tolerance
+      @param_tolerance    = param_tolerance
+      @gradient_tolerance = gradient_tolerance
+      @learning_rate      = learning_rate
+      @decay_factor       = decay_factor
     end
 
     def sigmoid(x)
@@ -70,18 +80,9 @@ module IrtRuby
 
     def log_likelihood
       ll = 0.0
-      @data_array.each_with_index do |row, i|
-        row.each_with_index do |resp, j|
-          value, skip = resolve_missing(resp)
-          next if skip
-
-          prob = sigmoid(@discriminations[j] * (@abilities[i] - @difficulties[j]))
-          ll += if value == 1
-                  Math.log(prob + 1e-15)
-                else
-                  Math.log((1 - prob) + 1e-15)
-                end
-        end
+      Estimation.each_response(@responses, @active_persons, @active_items) do |i, j, value|
+        z = @discriminations[j] * (@abilities[i] - @difficulties[j])
+        ll += Estimation.log_sigmoid(value == 1 ? z : -z)
       end
       ll
     end
@@ -91,18 +92,13 @@ module IrtRuby
       grad_difficulties    = Array.new(@difficulties.size, 0.0)
       grad_discriminations = Array.new(@discriminations.size, 0.0)
 
-      @data_array.each_with_index do |row, i|
-        row.each_with_index do |resp, j|
-          value, skip = resolve_missing(resp)
-          next if skip
+      Estimation.each_response(@responses, @active_persons, @active_items) do |i, j, value|
+        prob  = sigmoid(@discriminations[j] * (@abilities[i] - @difficulties[j]))
+        error = value - prob
 
-          prob  = sigmoid(@discriminations[j] * (@abilities[i] - @difficulties[j]))
-          error = value - prob
-
-          grad_abilities[i]       += error * @discriminations[j]
-          grad_difficulties[j]    -= error * @discriminations[j]
-          grad_discriminations[j] += error * (@abilities[i] - @difficulties[j])
-        end
+        grad_abilities[i]       += error * @discriminations[j]
+        grad_difficulties[j]    -= error * @discriminations[j]
+        grad_discriminations[j] += error * (@abilities[i] - @difficulties[j])
       end
 
       [grad_abilities, grad_difficulties, grad_discriminations]
@@ -122,50 +118,81 @@ module IrtRuby
       end
 
       @discriminations.each_index do |j|
-        @discriminations[j] += @learning_rate * gdisc[j]
-        @discriminations[j] = 0.01 if @discriminations[j] < 0.01
-        @discriminations[j] = 5.0  if @discriminations[j] > 5.0
+        @discriminations[j] = (@discriminations[j] + (@learning_rate * gdisc[j])).clamp(*DISCRIMINATION_BOUNDS)
       end
 
       [old_a, old_d, old_disc]
     end
 
     def average_param_update(old_a, old_d, old_disc)
-      deltas = []
-      @abilities.each_with_index    { |x, i| deltas << (x - old_a[i]).abs }
-      @difficulties.each_with_index { |x, j| deltas << (x - old_d[j]).abs }
-      @discriminations.each_with_index { |x, j| deltas << (x - old_disc[j]).abs }
+      deltas = Estimation.changes(@abilities, old_a, @active_persons) +
+               Estimation.changes(@difficulties, old_d, @active_items) +
+               Estimation.changes(@discriminations, old_disc, @active_items)
       deltas.sum / deltas.size
     end
 
+    # Returns estimates with nil for persons and items excluded as extreme or
+    # unobserved, plus whether the convergence criteria were met.
     def fit
-      prev_ll = log_likelihood
+      converged = false
+      iterations = 0
 
-      @max_iter.times do
-        ga, gd, gdisc = compute_gradient
-        old_a, old_d, old_disc = apply_gradient_update(ga, gd, gdisc)
+      if @active_persons.any?
+        prev_ll = log_likelihood
 
-        curr_ll     = log_likelihood
-        param_delta = average_param_update(old_a, old_d, old_disc)
+        @max_iter.times do
+          iterations += 1
+          ga, gd, gdisc = compute_gradient
+          old_a, old_d, old_disc = apply_gradient_update(ga, gd, gdisc)
 
-        if curr_ll < prev_ll
-          @abilities       = old_a
-          @difficulties    = old_d
-          @discriminations = old_disc
-          @learning_rate  *= @decay_factor
-        else
-          ll_diff = (curr_ll - prev_ll).abs
-          break if ll_diff < @tolerance && param_delta < @param_tolerance
+          curr_ll     = log_likelihood
+          param_delta = average_param_update(old_a, old_d, old_disc)
 
-          prev_ll = curr_ll
+          if curr_ll < prev_ll
+            @abilities       = old_a
+            @difficulties    = old_d
+            @discriminations = old_disc
+            @learning_rate  *= @decay_factor
+          else
+            ll_diff = (curr_ll - prev_ll).abs
+            if ll_diff < @tolerance && param_delta < @param_tolerance
+              converged = stationary?
+              break
+            end
+
+            prev_ll = curr_ll
+            @learning_rate *= Estimation::LEARNING_RATE_GROWTH
+          end
         end
+
+        standardize_abilities
       end
 
       {
-        abilities: @abilities,
-        difficulties: @difficulties,
-        discriminations: @discriminations
+        abilities: Estimation.estimates(@abilities, @active_persons),
+        difficulties: Estimation.estimates(@difficulties, @active_items),
+        discriminations: Estimation.estimates(@discriminations, @active_items),
+        converged: converged,
+        iterations: iterations
       }
     end
+
+    def stationary?
+      ga, gd, gdisc = compute_gradient
+      gdisc = Estimation.project(gdisc, @discriminations, *DISCRIMINATION_BOUNDS)
+      Estimation.stationary?(ga, [gd, gdisc], @person_counts, @item_counts, @gradient_tolerance)
+    end
+    private :stationary?
+
+    # Rescales the latent trait without changing the likelihood: theta' = (theta - m) / s,
+    # b' = (b - m) / s, a' = a * s.
+    def standardize_abilities
+      mean, sd = Estimation.mean_and_sd(@abilities.select.with_index { |_, i| @active_persons[i] })
+      sd = 1.0 if sd.zero?
+      @abilities.map! { |theta| (theta - mean) / sd }
+      @difficulties.map! { |b| (b - mean) / sd }
+      @discriminations.map! { |a| a * sd }
+    end
+    private :standardize_abilities
   end
 end

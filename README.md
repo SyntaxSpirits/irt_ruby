@@ -46,7 +46,11 @@ result = model.fit
 # Output the estimated abilities and difficulties
 puts "Abilities:    #{result[:abilities]}"
 puts "Difficulties: #{result[:difficulties]}"
+puts "Converged:    #{result[:converged]} after #{result[:iterations]} iterations"
 ```
+
+The third respondent answered every item correctly, so their ability has no
+finite estimate and is returned as `nil` (see [Estimation Details](#estimation-details)).
 
 Response data passed to model constructors must be either a `Matrix` or an
 array of arrays. Each response value must be the integer `0`, the integer `1`,
@@ -68,6 +72,10 @@ puts three_pl_result[:difficulties]
 puts three_pl_result[:discriminations]
 puts three_pl_result[:guessings]
 ```
+
+Three respondents are far too few for 2PL or 3PL: on this matrix `fit` returns
+`converged: false`. Discrimination and guessing estimates need hundreds of
+respondents.
 
 ## Handling Missing Data
 Real-world data often has missing responses. Each model (Rasch, 2PL, 3PL) accepts a `missing_strategy:` option to handle nil entries:
@@ -102,15 +110,19 @@ This flexibility helps you handle datasets where missingness might signify a ski
 ### Adaptive Learning Rate & Convergence
 By default, each model uses a gradient ascent with:
 
-- An adaptive learning rate (if log-likelihood decreases, it reverts the step and reduces the rate).
-- Multiple convergence checks (change in log-likelihood and average parameter updates).
+- An adaptive learning rate: if log-likelihood decreases, the step is reverted and the rate is multiplied by `decay_factor`; after each accepted step the rate grows by 10%.
+- A stopping rule on the change in log-likelihood and the average parameter update.
+- A stationarity check that decides whether the stopping point is reported as converged.
 
 You can customize:
 
 - `max_iter`: The maximum number of iterations.
-- `tolerance` and `param_tolerance`: Convergence thresholds for log-likelihood change and parameter updates.
+- `tolerance` and `param_tolerance`: Stopping thresholds for log-likelihood change and parameter updates.
+- `gradient_tolerance` (default `1e-3`): `fit` reports `converged: true` only if, for every parameter, the gradient averaged over the responses it depends on is below this value.
 - `learning_rate`: Initial learning rate.
 - `decay_factor`: Factor by which the learning rate is reduced on a failed step.
+
+`fit` returns `converged: false` when `max_iter` runs out or when the stopping rule fires away from a stationary point, for example because the learning rate became too small to move. Check this flag before using the estimates; a larger `learning_rate` or `max_iter` usually helps.
 
 Example:
 ```ruby
@@ -140,10 +152,18 @@ The `seed:` keyword is available for `RaschModel`, `TwoParameterModel`, and `Thr
 ### Parameter Clamping
 For 2PL and 3PL:
 
-- **Discriminations** (`a`) are clamped between `0.01` and `5.0`.
+- **Discriminations** (`a`) are clamped between `0.01` and `5.0` during optimization.
 - **Guessings** (`c`, 3PL only) are clamped to `[0.0, 0.35]`.
 
-This prevents extreme or invalid parameter estimates.
+These bounds are model restrictions: a 3PL item with a true lower asymptote above `0.35` cannot be represented. Because the final scale is standardized after optimization (see below), returned discriminations can fall slightly outside the optimization bounds.
+
+## Estimation Details
+
+All models estimate person and item parameters jointly by maximizing the likelihood (joint maximum likelihood, JMLE).
+
+- **Extreme and unobserved patterns.** A respondent who answered every observed item correctly, or every item incorrectly, has no finite maximum-likelihood ability; the same holds for items that everyone answered correctly or incorrectly, and for rows or columns with no observed responses. These persons and items are excluded from estimation and returned as `nil`. Exclusion is repeated until stable, since removing an item can make a respondent's remaining pattern extreme. Missing-data strategies are applied first, so `:treat_as_correct` and `:treat_as_incorrect` can create extreme patterns.
+- **Scale identification.** The latent scale is fixed after fitting: Rasch abilities are centered to mean 0; 2PL and 3PL abilities are standardized to mean 0 and standard deviation 1, with difficulties and discriminations transformed so that response probabilities are unchanged. Only estimable respondents enter these statistics.
+- **Known limitations.** JMLE item estimates are biased when tests are short, and the bias does not vanish as the number of respondents grows. 2PL and 3PL JMLE is also slow to converge with plain gradient ascent. For high-stakes calibration, compare against marginal maximum likelihood software such as R's `mirt`.
 
 ## Performance Benchmarks
 

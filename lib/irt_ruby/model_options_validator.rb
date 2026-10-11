@@ -5,10 +5,11 @@ module IrtRuby
   module ModelOptionsValidator
     module_function
 
-    def validate!(max_iter:, tolerance:, param_tolerance:, learning_rate:, decay_factor:)
+    def validate!(max_iter:, tolerance:, param_tolerance:, gradient_tolerance:, learning_rate:, decay_factor:)
       validate_positive_integer!(:max_iter, max_iter)
       validate_positive_finite_numeric!(:tolerance, tolerance)
       validate_positive_finite_numeric!(:param_tolerance, param_tolerance)
+      validate_positive_finite_numeric!(:gradient_tolerance, gradient_tolerance)
       validate_positive_finite_numeric!(:learning_rate, learning_rate)
       validate_decay_factor!(decay_factor)
     end

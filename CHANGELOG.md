@@ -4,7 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Fixed 3PL gradients for ability, difficulty, discrimination, and guessing; they now match finite differences of the log-likelihood.
+- Respondents and items with all-correct, all-incorrect, or unobserved response patterns are excluded from estimation and returned as `nil` instead of drifting with `max_iter` or keeping random initial values.
+- Log-likelihoods are computed with a numerically stable log-sigmoid instead of adding `1e-15` inside `Math.log`, which flattened the objective for badly mispredicted responses.
+- Models copy response data on construction and return fresh arrays from `fit`, so later mutation of either does not change model state.
+
+### Changed
+- `fit` fixes the latent scale: Rasch abilities are centered at 0; 2PL and 3PL abilities are standardized to mean 0 and SD 1 with likelihood-preserving item transformations.
+- `fit` results include `converged:` and `iterations:`. `converged` is true only at a stationary point, controlled by the new `gradient_tolerance:` option (default `1e-3`).
+- Clarified the gem summary and description to describe implemented capabilities rather than production-readiness claims.
+
 ### Added
+- Added finite-difference gradient, identification, extreme-pattern, and parameter-recovery specs.
 - Added executable specs for README usage examples to keep the documented Rasch, 2PL, 3PL, and missing-data flows aligned with the public API.
 
 ### Changed
@@ -13,7 +25,7 @@ All notable changes to this project are documented in this file.
 
 ---
 
-## [0.3.0] - 2025-01-14
+## [0.3.0] - 2025-06-13
 
 ### Changed
 - **Code Quality**

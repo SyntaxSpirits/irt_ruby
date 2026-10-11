@@ -5,46 +5,6 @@ require "bundler/setup"
 require "irt_ruby"
 require "benchmark"
 
-# Enhanced model classes that track iterations and convergence
-class TrackedRaschModel < IrtRuby::RaschModel
-  attr_reader :iterations, :final_log_likelihood, :convergence_reason
-
-  def fit
-    @iterations = 0
-    prev_ll = log_likelihood
-    @final_log_likelihood = prev_ll
-    @convergence_reason = :max_iterations
-
-    @max_iter.times do
-      @iterations += 1
-      grad_abilities, grad_difficulties = compute_gradient
-
-      old_a, old_d = apply_gradient_update(grad_abilities, grad_difficulties)
-
-      current_ll = log_likelihood
-      param_delta = average_param_update(old_a, old_d)
-
-      if current_ll < prev_ll
-        @abilities = old_a
-        @difficulties = old_d
-        @learning_rate *= @decay_factor
-      else
-        ll_diff = (current_ll - prev_ll).abs
-        @final_log_likelihood = current_ll
-
-        if ll_diff < @tolerance && param_delta < @param_tolerance
-          @convergence_reason = :tolerance_reached
-          break
-        end
-
-        prev_ll = current_ll
-      end
-    end
-
-    { abilities: @abilities, difficulties: @difficulties }
-  end
-end
-
 def generate_data(num_people, num_items, difficulty_range: (-2..2), ability_range: (-2..2))
   # Generate realistic IRT data based on known parameters
   true_abilities = Array.new(num_people) { rand(ability_range) }
@@ -84,27 +44,27 @@ tolerance_configs.each do |config|
 
   times = []
   iterations = []
-  convergence_reasons = []
+  convergences = []
 
   5.times do
     time = Benchmark.measure do
-      model = TrackedRaschModel.new(
+      model = IrtRuby::RaschModel.new(
         data,
         max_iter: 2000,
         tolerance: config[:tolerance],
         param_tolerance: config[:param_tolerance],
         learning_rate: 0.01
       )
-      model.fit
-      iterations << model.iterations
-      convergence_reasons << model.convergence_reason
+      result = model.fit
+      iterations << result[:iterations]
+      convergences << result[:converged]
     end.real
     times << time
   end
 
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
-  convergence_rate = convergence_reasons.count(:tolerance_reached) / 5.0
+  convergence_rate = convergences.count(true) / 5.0
 
   printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
@@ -128,27 +88,27 @@ learning_rate_configs.each do |config|
 
   times = []
   iterations = []
-  convergence_reasons = []
+  convergences = []
 
   5.times do
     time = Benchmark.measure do
-      model = TrackedRaschModel.new(
+      model = IrtRuby::RaschModel.new(
         data,
         max_iter: 1000,
         tolerance: 1e-5,
         param_tolerance: 1e-5,
         learning_rate: config[:rate]
       )
-      model.fit
-      iterations << model.iterations
-      convergence_reasons << model.convergence_reason
+      result = model.fit
+      iterations << result[:iterations]
+      convergences << result[:converged]
     end.real
     times << time
   end
 
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
-  convergence_rate = convergence_reasons.count(:tolerance_reached) / 5.0
+  convergence_rate = convergences.count(true) / 5.0
 
   printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
@@ -171,7 +131,7 @@ dataset_configs.each do |config|
 
   times = []
   iterations = []
-  convergence_reasons = []
+  convergences = []
 
   3.times do
     dataset = generate_data(
@@ -182,23 +142,23 @@ dataset_configs.each do |config|
     )
 
     time = Benchmark.measure do
-      model = TrackedRaschModel.new(
+      model = IrtRuby::RaschModel.new(
         dataset[:data],
         max_iter: 1000,
         tolerance: 1e-5,
         param_tolerance: 1e-5,
         learning_rate: 0.01
       )
-      model.fit
-      iterations << model.iterations
-      convergence_reasons << model.convergence_reason
+      result = model.fit
+      iterations << result[:iterations]
+      convergences << result[:converged]
     end.real
     times << time
   end
 
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
-  convergence_rate = convergence_reasons.count(:tolerance_reached) / 3.0
+  convergence_rate = convergences.count(true) / 3.0
 
   printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
@@ -233,11 +193,11 @@ missing_configs.each do |config|
 
   times = []
   iterations = []
-  convergence_reasons = []
+  convergences = []
 
   3.times do
     time = Benchmark.measure do
-      model = TrackedRaschModel.new(
+      model = IrtRuby::RaschModel.new(
         data_with_missing,
         max_iter: 1000,
         tolerance: 1e-5,
@@ -245,16 +205,16 @@ missing_configs.each do |config|
         learning_rate: 0.01,
         missing_strategy: config[:strategy]
       )
-      model.fit
-      iterations << model.iterations
-      convergence_reasons << model.convergence_reason
+      result = model.fit
+      iterations << result[:iterations]
+      convergences << result[:converged]
     end.real
     times << time
   end
 
   avg_time = times.sum / times.size
   avg_iterations = iterations.sum.to_f / iterations.size
-  convergence_rate = convergence_reasons.count(:tolerance_reached) / 3.0
+  convergence_rate = convergences.count(true) / 3.0
 
   printf("  Time: %6.3fs  Iterations: %6.1f  Convergence Rate: %4.0f%%\n",
          avg_time, avg_iterations, convergence_rate * 100)
