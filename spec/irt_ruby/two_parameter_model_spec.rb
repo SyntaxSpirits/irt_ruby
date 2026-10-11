@@ -48,8 +48,8 @@ RSpec.describe IrtRuby::TwoParameterModel do
     it "does not raise an error with missing data (nil) in 2PL" do
       missing_data = [
         [1, nil, 0],
-        [1,  0,   1],
-        [0,  1,   nil]
+        [1, 0, 1],
+        [0, 1, nil]
       ]
       model = described_class.new(missing_data, max_iter: 200, learning_rate: 0.05)
       expect { model.fit }.not_to raise_error
@@ -202,18 +202,15 @@ RSpec.describe IrtRuby::TwoParameterModel do
       end
     end
 
-    context "Known parameter test (optional)" do
-      it "checks parameter ranges on a small synthetic dataset" do
-        data = [
-          [1, 1],
-          [1, 1]
-        ]
-        model = described_class.new(data, max_iter: 200, learning_rate: 0.05)
+    context "Extreme response patterns" do
+      it "returns nil for every parameter when all responses are correct" do
+        model = described_class.new([[1, 1], [1, 1]], max_iter: 200, learning_rate: 0.05)
         results = model.fit
 
-        results[:discriminations].each do |disc|
-          expect(disc).to be_between(0.01, 5.0)
-        end
+        expect(results[:abilities]).to eq([nil, nil])
+        expect(results[:difficulties]).to eq([nil, nil])
+        expect(results[:discriminations]).to eq([nil, nil])
+        expect(results[:iterations]).to eq(0)
       end
     end
   end

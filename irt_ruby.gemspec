@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Alex Kholodniak"]
   spec.email         = ["alexandrkholodniak@gmail.com"]
 
-  spec.summary       = "Production-ready Item Response Theory (IRT) models with comprehensive performance benchmarking and adaptive optimization."
+  spec.summary       = "Rasch, 2PL, and 3PL Item Response Theory (IRT) models estimated by joint maximum likelihood."
   spec.description   = <<~DESC
-    IrtRuby is a comprehensive Ruby library for Item Response Theory (IRT) analysis,#{" "}
+    IrtRuby is a Ruby library for Item Response Theory (IRT) analysis,#{" "}
     commonly used in educational assessment, psychological testing, and survey research.
 
     Features three core IRT models:
@@ -19,13 +19,12 @@ Gem::Specification.new do |spec|
     • Three-Parameter Model (3PL) - Includes guessing parameter
 
     Key capabilities:
-    • Robust gradient ascent optimization with adaptive learning rates
-    • Flexible missing data strategies (ignore, treat as incorrect/correct)
-    • Comprehensive performance benchmarking suite
-    • Memory-efficient implementation with excellent scaling
-    • Production-ready with extensive test coverage
+    • Joint maximum likelihood by gradient ascent with an adaptive learning rate
+    • Convergence reporting, scale identification, and exclusion of extreme response patterns
+    • Missing data strategies (ignore, treat as incorrect/correct)
+    • Performance and convergence benchmark scripts
 
-    Perfect for researchers, data scientists, and developers working with#{" "}
+    Intended for researchers, data scientists, and developers working with#{" "}
     educational assessments, psychological measurements, or any binary response data
     where item and person parameters need to be estimated simultaneously.
   DESC

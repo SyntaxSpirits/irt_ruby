@@ -48,6 +48,7 @@ RSpec.shared_examples "model optimization option validation" do
     max_iter: [0, -1, 1.5, "100", nil],
     tolerance: [0, -1e-6, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(1, 0), "1e-6", nil],
     param_tolerance: [0, -1e-6, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(1, 0), "1e-6", nil],
+    gradient_tolerance: [0, -1e-6, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(1, 0), "1e-3", nil],
     learning_rate: [0, -0.01, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(0.01, 0), "0.01", nil],
     decay_factor: [0, 1, -0.1, 1.1, Float::INFINITY, -Float::INFINITY, Float::NAN, Complex(0.5, 0), "0.5", nil]
   }.each do |option, invalid_values|
