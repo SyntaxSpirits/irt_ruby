@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 - Fixed 3PL gradients for ability, difficulty, discrimination, and guessing; they now match finite differences of the log-likelihood.
 - Only the largest strongly connected part of the response graph is estimated; other respondents and items are returned as `nil` instead of drifting with `max_iter` or keeping random initial values. This covers all-correct, all-incorrect, and unobserved rows or columns as well as perfectly separated or disconnected groups.
-- 3PL keeps the limiting `log(1 - c)` contribution of excluded respondents who answered every estimated item incorrectly, and computes guessing gradients stably when the response function underflows.
+- 3PL keeps the limiting `log(1 - c)` contribution of excluded respondents who answered every estimated item incorrectly, and keeps guessing gradients finite when the response function underflows.
 - Log-likelihoods are computed with a numerically stable log-sigmoid instead of adding `1e-15` inside `Math.log`, which flattened the objective for badly mispredicted responses.
 - Models copy response data on construction and return fresh arrays from `fit`, so later mutation of either does not change model state.
 

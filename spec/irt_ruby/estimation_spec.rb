@@ -217,6 +217,27 @@ RSpec.describe "Estimation correctness" do
 
       expect(model.compute_gradient[3][1]).to be_within(1e-12).of(0.0)
     end
+
+    it "keeps guessing gradients finite when exp(-z) overflows" do
+      model = described_class.new([[1, 0], [0, 1]], seed: 1)
+      model.instance_variable_set(:@abilities, [-750.0, 0.0])
+      model.instance_variable_set(:@difficulties, [0.0, 0.0])
+      model.instance_variable_set(:@discriminations, [1.0, 1.0])
+      model.instance_variable_set(:@guessings, [0.0, 0.0])
+
+      expect(model.compute_gradient[3]).to all(be_finite)
+    end
+
+    it "averages guessing gradients over responses of excluded all-incorrect respondents too" do
+      data = [[1, 0], [0, 1]] + Array.new(100) { [0, 0] }
+      model = described_class.new(data, learning_rate: 1e-20, seed: 1)
+      model.instance_variable_set(:@abilities, [-1e-7, 1e-7] + Array.new(100, 0.0))
+      model.instance_variable_set(:@difficulties, [472.281575830441] * 2)
+      model.instance_variable_set(:@discriminations, [0.01] * 2)
+      model.instance_variable_set(:@guessings, [0.001] * 2)
+
+      expect(model.fit[:converged]).to be(true)
+    end
   end
 
   it "reaches the exact Rasch joint estimates on the README data" do
