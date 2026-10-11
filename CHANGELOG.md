@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.4.0] - 2026-10-11
 
 ### Fixed
 - Fixed 3PL gradients for ability, difficulty, discrimination, and guessing; they now match finite differences of the log-likelihood.
@@ -10,16 +10,18 @@ All notable changes to this project are documented in this file.
 - 3PL keeps the limiting `log(1 - c)` contribution of excluded respondents who answered every estimated item incorrectly, and keeps guessing gradients finite when the response function underflows.
 - Log-likelihoods are computed with a numerically stable log-sigmoid instead of adding `1e-15` inside `Math.log`, which flattened the objective for badly mispredicted responses.
 - Models copy response data on construction and return fresh arrays from `fit`, so later mutation of either does not change model state.
+- Model constructors validate optimization options and raise `ArgumentError` unless `max_iter` is a positive Integer, `tolerance`, `param_tolerance`, `gradient_tolerance`, and `learning_rate` are positive finite numbers, and `decay_factor` is strictly between 0 and 1.
 
 ### Changed
 - `fit` reports results on a fixed latent scale: Rasch abilities are centered at 0; 2PL and 3PL abilities are standardized to mean 0 and SD 1 with likelihood-preserving item transformations.
 - `fit` results include `converged:` and `iterations:`. `converged` is true only at a stationary point on the reported scale, controlled by the new `gradient_tolerance:` option (default `1e-3`).
 - The learning rate grows by 10% after each accepted step, so it can recover from earlier decreases.
 - Clarified the gem summary and description to describe implemented capabilities rather than production-readiness claims.
-- Added CI RuboCop and gem package build/install verification, and documented the local quality and packaging commands for contributors.
+- Added CI RuboCop and gem package build/install verification, and documented the local quality and packaging commands for contributors. RuboCop is pinned to 1.92.0 for Ruby 2.7 and newer.
 - Clarified that response data must be a `Matrix` or array of arrays containing only integer `0`, integer `1`, or `nil`; floats, strings, booleans, and other values are rejected.
 
 ### Added
+- Added a `seed:` keyword to all models for reproducible initialization without resetting or consuming Ruby's global random number generator.
 - Added finite-difference gradient, identification, extreme-pattern, and parameter-recovery specs.
 - Added executable specs for README usage examples to keep the documented Rasch, 2PL, 3PL, and missing-data flows aligned with the public API.
 
