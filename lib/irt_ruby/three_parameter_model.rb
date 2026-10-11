@@ -19,9 +19,9 @@ module IrtRuby
     MISSING_STRATEGIES = %i[ignore treat_as_incorrect treat_as_correct].freeze
     DISCRIMINATION_BOUNDS = [0.01, 5.0].freeze
     GUESSING_BOUNDS = [0.0, 0.35].freeze
-    # A correct response at c = 0 contributes exp(-z) to the guessing gradient, which
-    # overflows for very negative z; capping each term keeps the sum finite so that
-    # backtracking can still shrink the step.
+    # A correct response contributes (1 - s) / P to the guessing gradient (exp(-z) at
+    # c = 0), which overflows when P is tiny; capping each term keeps the sum finite
+    # so that backtracking can still shrink the step.
     MAX_GUESSING_GRADIENT_TERM = 1e12
 
     def initialize(data,
@@ -138,7 +138,7 @@ module IrtRuby
         grad_guessings[j]       += if value.zero?
                                      -1.0 / (1.0 - c)
                                    else
-                                     c.zero? ? [Math.exp(-z), MAX_GUESSING_GRADIENT_TERM].min : (1.0 - s) / prob
+                                     [c.zero? ? Math.exp(-z) : (1.0 - s) / prob, MAX_GUESSING_GRADIENT_TERM].min
                                    end
       end
       @floor_items.each { |j| grad_guessings[j] -= 1.0 / (1.0 - @guessings[j]) }

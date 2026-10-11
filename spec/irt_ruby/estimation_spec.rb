@@ -226,6 +226,8 @@ RSpec.describe "Estimation correctness" do
       model.instance_variable_set(:@guessings, [0.0, 0.0])
 
       expect(model.compute_gradient[3]).to all(be_finite)
+      model.instance_variable_set(:@guessings, [1e-310, 0.0])
+      expect(model.compute_gradient[3]).to all(be_finite)
     end
 
     it "averages guessing gradients over responses of excluded all-incorrect respondents too" do

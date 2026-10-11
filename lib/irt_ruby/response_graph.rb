@@ -12,7 +12,8 @@ module IrtRuby
     # within a strongly connected component, so the largest one is kept. All-correct,
     # all-incorrect and unobserved rows or columns, perfectly separated subsets, and
     # subsets sharing no responses all fall outside it. This suffices for the Rasch
-    # model; for 2PL and 3PL it is necessary but not sufficient.
+    # model and for 2PL with bounded discriminations; for 3PL it is necessary but not
+    # sufficient.
     def estimable(responses)
       num_persons = responses.size
       num_items = responses.first.size
