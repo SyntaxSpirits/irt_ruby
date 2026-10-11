@@ -65,6 +65,8 @@ module IrtRuby
     end
 
     def self.validate_fit_ids!(item_ids, parameters)
+      raise ArgumentError, "difficulties must be an Array" unless parameters[:difficulties].is_a?(Array)
+
       count = parameters[:difficulties].size
       raise ArgumentError, "item_ids must be an Array with one id per item (#{count})" unless item_ids.is_a?(Array) && item_ids.size == count
 
@@ -80,6 +82,9 @@ module IrtRuby
 
     def self.sample_distribution(abilities)
       values = Array(abilities).compact
+      raise ArgumentError, "abilities must be finite numbers or nil" unless values.all? { |v| v.is_a?(Numeric) && !v.is_a?(Complex) && v.to_f.finite? }
+
+      values = values.map(&:to_f)
       return nil if values.size < 2
 
       mean = values.sum / values.size

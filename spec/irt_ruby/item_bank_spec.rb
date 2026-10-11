@@ -80,6 +80,24 @@ RSpec.describe IrtRuby::ItemBank do
       expect(distribution["sd"]).to be_within(1e-12).of(1.0)
     end
 
+    it "computes the ability distribution in floating point" do
+      bank = described_class.from_fit({ difficulties: [0], abilities: [0, 1, 2, 3] }, item_ids: %w[x])
+
+      expect(bank.ability_distribution).to eq("mean" => 1.5, "sd" => Math.sqrt(1.25))
+    end
+
+    it "rejects non-finite abilities instead of dropping the distribution" do
+      [Float::NAN, Float::INFINITY].each do |bad|
+        expect { described_class.from_fit({ difficulties: [0.0], abilities: [bad, 0.0] }, item_ids: %w[x]) }
+          .to raise_error(ArgumentError, /abilities must be finite numbers or nil/)
+      end
+    end
+
+    it "requires difficulties to be an Array" do
+      expect { described_class.from_fit({ difficulties: nil }, item_ids: %w[x]) }
+        .to raise_error(ArgumentError, /difficulties must be an Array/)
+    end
+
     it "never invents values for estimated parameters" do
       expect { described_class.from_fit({ difficulties: [0.0, 1.0], discriminations: [2.0] }, item_ids: %w[x y]) }
         .to raise_error(ArgumentError, /discriminations must be an Array with one value per item \(2\)/)
